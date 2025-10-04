@@ -95,10 +95,10 @@ export default function DeployLocker() {
         payment_tx_hash: paymentHash,
       }, {
         onSuccess: () => {
-          const shareUrl = `${window.location.origin}/locker/${receipt.contractAddress}`;
+          const shareUrl = `${window.location.origin}/locked/${receipt.contractAddress}`;
           toast({ 
-            title: 'locker deployed successfully!',
-            description: `share your locked liquidity at: ${shareUrl}`,
+            title: '🎉 locker deployed successfully!',
+            description: `share link copied: ${shareUrl}`,
           });
           
           // Copy link to clipboard automatically
