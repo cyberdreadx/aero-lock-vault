@@ -21,7 +21,7 @@ import {
 } from '@/hooks/web3/useLPLocker';
 import { useLockerLocks } from '@/hooks/web3/useUserLocks';
 import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
-import { getLockStatus, formatTokenAmount, calculateUnlockDate, getTimeRemaining } from '@/lib/web3/utils';
+import { LockCard } from '@/components/web3/LockCard';
 
 export default function LockerDetails() {
   const { lockerAddress } = useParams();
@@ -43,7 +43,7 @@ export default function LockerDetails() {
   const isOwner = useIsLockerOwner(validAddress);
   const isPendingOwnerRole = useIsPendingOwner(validAddress);
 
-  const { locks, isLoading: isLoadingLocks, refetch: refetchLocks } = useLockerLocks(validAddress);
+  const { lockIds, isLoading: isLoadingLocks, refetch: refetchLocks } = useLockerLocks(validAddress);
   const { data: tokenMetadata } = useTokenMetadata(lpToken);
   const { data: userBalance, refetch: refetchBalance } = useTokenBalance(lpToken);
   const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(lpToken, validAddress);
@@ -474,94 +474,26 @@ export default function LockerDetails() {
               <div className="text-xs text-muted-foreground">loading locks...</div>
             )}
 
-            {!isLoadingLocks && locks.length === 0 && (
+            {!isLoadingLocks && lockIds.length === 0 && (
               <Card className="p-8 text-center">
                 <p className="text-xs text-muted-foreground">no locks created yet</p>
               </Card>
             )}
 
-            {!isLoadingLocks && locks.length > 0 && (
+            {!isLoadingLocks && lockIds.length > 0 && (
               <div className="space-y-3">
-                {locks.map((lock) => {
-                  const status = getLockStatus(lock);
-                  const unlockDate = calculateUnlockDate(lock.lockUpEndTime);
-                  const timeRemaining = getTimeRemaining(unlockDate);
-                  const isOwnLock = address && lock.owner.toLowerCase() === address.toLowerCase();
-
-                  return (
-                    <Card key={lock.lockId} className="p-5">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="space-y-1">
-                            <p className="text-[10px] text-muted-foreground">lock id</p>
-                            <p className="text-xs font-mono">{lock.lockId.slice(0, 10)}...{lock.lockId.slice(-8)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-medium">
-                              {tokenMetadata ? formatTokenAmount(lock.amount, tokenMetadata.decimals) : '...'} {tokenMetadata?.symbol}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground capitalize">{status}</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 pt-3 border-t text-[10px]">
-                          <div>
-                            <span className="text-muted-foreground">unlock time</span>
-                            <p className="text-xs font-medium">{timeRemaining}</p>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">owner</span>
-                            <p className="text-xs font-medium">{isOwnLock ? 'you' : lock.owner.slice(0, 6)}</p>
-                          </div>
-                        </div>
-
-                        {isOwnLock && (
-                          <div className="flex flex-wrap gap-2 pt-3 border-t">
-                            {status === 'active' && (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleTriggerWithdrawal(lock.lockId)}
-                                disabled={isPending}
-                              >
-                                trigger withdrawal
-                              </Button>
-                            )}
-                            {status === 'triggered' && (
-                              <>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleCancelWithdrawal(lock.lockId)}
-                                  disabled={isPending}
-                                >
-                                  cancel withdrawal
-                                </Button>
-                              </>
-                            )}
-                            {status === 'unlocked' && (
-                              <Button 
-                                size="sm"
-                                onClick={() => handleWithdraw(lock.lockId, lock.amount)}
-                                disabled={isPending}
-                              >
-                                withdraw
-                              </Button>
-                            )}
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => handleClaimFees(lock.lockId)}
-                              disabled={isPending}
-                            >
-                              claim fees
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
+                {lockIds.map((lockId) => (
+                  <LockCard
+                    key={lockId}
+                    lockerAddress={validAddress}
+                    lockId={lockId}
+                    onTriggerWithdrawal={handleTriggerWithdrawal}
+                    onCancelWithdrawal={handleCancelWithdrawal}
+                    onWithdraw={handleWithdraw}
+                    onClaimFees={handleClaimFees}
+                    isPending={isPending}
+                  />
+                ))}
               </div>
             )}
           </div>
