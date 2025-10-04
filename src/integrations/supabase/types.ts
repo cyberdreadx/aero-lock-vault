@@ -23,7 +23,7 @@ export type Database = {
           id: string
           locker_address: string
           lp_token_address: string
-          user_id: string
+          wallet_address: string
         }
         Insert: {
           created_at?: string | null
@@ -33,7 +33,7 @@ export type Database = {
           id?: string
           locker_address: string
           lp_token_address: string
-          user_id: string
+          wallet_address?: string
         }
         Update: {
           created_at?: string | null
@@ -43,7 +43,7 @@ export type Database = {
           id?: string
           locker_address?: string
           lp_token_address?: string
-          user_id?: string
+          wallet_address?: string
         }
         Relationships: []
       }

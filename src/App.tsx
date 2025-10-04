@@ -8,7 +8,6 @@ import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
 import { config } from '@/lib/web3/config';
 import '@rainbow-me/rainbowkit/styles.css';
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import DeployLocker from "./pages/DeployLocker";
 import LockerDetails from "./pages/LockerDetails";
@@ -31,7 +30,6 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
               <Route path="/lockers" element={<AuthGuard><Dashboard /></AuthGuard>} />
               <Route path="/deploy" element={<AuthGuard><DeployLocker /></AuthGuard>} />
               <Route path="/locker/:lockerAddress" element={<AuthGuard><LockerDetails /></AuthGuard>} />
