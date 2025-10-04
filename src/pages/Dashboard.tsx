@@ -75,14 +75,14 @@ export default function Dashboard() {
                 <tbody>
                   {locks.map((lock) => {
                     const status = getLockStatus(lock);
-                    const unlockDate = calculateUnlockDate(lock.withdrawalTriggeredAt);
+                    const unlockDate = calculateUnlockDate(lock.lockUpEndTime);
                     const timeRemaining = getTimeRemaining(unlockDate);
 
                     return (
-                      <tr key={lock.lockId.toString()} className="border-b border-border last:border-0">
-                        <td className="p-3">{lock.lockId.toString()}</td>
+                      <tr key={lock.lockId} className="border-b border-border last:border-0">
+                        <td className="p-3">{lock.lockId.slice(0, 10)}...</td>
                         <td className="p-3">
-                          <AddressDisplay address={lock.lpToken} showLink={false} />
+                          <AddressDisplay address={lock.tokenContract} showLink={false} />
                         </td>
                         <td className="p-3">{formatTokenAmount(lock.amount)}</td>
                         <td className="p-3">

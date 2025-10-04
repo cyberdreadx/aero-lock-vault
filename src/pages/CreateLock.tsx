@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAccount } from 'wagmi';
-import { parseUnits, isAddress } from 'viem';
+import { useAccount, useReadContract } from 'wagmi';
+import { parseUnits } from 'viem';
 import { WalletButton } from '@/components/web3/WalletButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,22 +10,28 @@ import { toast } from '@/hooks/use-toast';
 import { useLPLocker, useWaitForTransaction } from '@/hooks/web3/useLPLocker';
 import { useERC20, useTokenBalance, useTokenAllowance, useTokenMetadata } from '@/hooks/web3/useERC20';
 import { CONTRACTS } from '@/lib/web3/constants';
+import { LPLockerABI } from '@/lib/web3/abis/LPLockerABI';
 import { formatTokenAmount } from '@/lib/web3/utils';
 
 export default function CreateLock() {
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
-  const [lpTokenAddress, setLpTokenAddress] = useState<`0x${string}` | ''>('');
   const [amount, setAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
 
-  const validAddress = lpTokenAddress && isAddress(lpTokenAddress) ? lpTokenAddress : undefined;
-  const { data: tokenMetadata } = useTokenMetadata(validAddress);
-  const { data: balance, refetch: refetchBalance } = useTokenBalance(validAddress);
-  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(validAddress, CONTRACTS.LP_LOCKER);
-  const { approve } = useERC20(validAddress);
+  // Get the LP token from the locker contract
+  const { data: lpTokenAddress } = useReadContract({
+    address: CONTRACTS.LP_LOCKER,
+    abi: LPLockerABI,
+    functionName: 'tokenContract',
+  }) as { data: `0x${string}` | undefined };
+
+  const { data: tokenMetadata } = useTokenMetadata(lpTokenAddress);
+  const { data: balance, refetch: refetchBalance } = useTokenBalance(lpTokenAddress);
+  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(lpTokenAddress, CONTRACTS.LP_LOCKER);
+  const { approve } = useERC20(lpTokenAddress);
   const { lockLiquidity } = useLPLocker();
   const { isSuccess: isTxSuccess } = useWaitForTransaction(txHash);
 
@@ -33,7 +39,7 @@ export default function CreateLock() {
   const needsApproval = allowance !== undefined && parsedAmount > allowance;
 
   const handleApprove = async () => {
-    if (!validAddress || !parsedAmount) return;
+    if (!lpTokenAddress || !parsedAmount) return;
     
     setIsApproving(true);
     try {
@@ -49,11 +55,11 @@ export default function CreateLock() {
   };
 
   const handleLock = async () => {
-    if (!validAddress || !parsedAmount) return;
+    if (!parsedAmount) return;
 
     setIsLocking(true);
     try {
-      const hash = await lockLiquidity(validAddress, parsedAmount);
+      const hash = await lockLiquidity(parsedAmount);
       setTxHash(hash);
       toast({ description: 'lock created' });
       await refetchBalance();
@@ -100,21 +106,15 @@ export default function CreateLock() {
           </div>
 
           <div className="space-y-4 border border-border p-6">
-            <div className="space-y-2">
-              <Label htmlFor="token" className="text-xs">lp token address</Label>
-              <Input
-                id="token"
-                placeholder="0x..."
-                value={lpTokenAddress}
-                onChange={(e) => setLpTokenAddress(e.target.value as `0x${string}`)}
-                className="text-xs"
-              />
-              {tokenMetadata && (
+            {lpTokenAddress && tokenMetadata && (
+              <div className="space-y-2 pb-4 border-b border-border">
+                <p className="text-xs text-muted-foreground">lp token</p>
+                <p className="text-xs font-mono">{lpTokenAddress}</p>
                 <p className="text-xs text-muted-foreground">
                   {tokenMetadata.name} ({tokenMetadata.symbol})
                 </p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="amount" className="text-xs">amount</Label>
@@ -136,7 +136,7 @@ export default function CreateLock() {
             {needsApproval ? (
               <Button
                 onClick={handleApprove}
-                disabled={isApproving || !validAddress || !parsedAmount}
+                disabled={isApproving || !lpTokenAddress || !parsedAmount}
                 className="w-full"
                 size="sm"
               >
@@ -145,7 +145,7 @@ export default function CreateLock() {
             ) : (
               <Button
                 onClick={handleLock}
-                disabled={isLocking || !validAddress || !parsedAmount}
+                disabled={isLocking || !lpTokenAddress || !parsedAmount}
                 className="w-full"
                 size="sm"
               >

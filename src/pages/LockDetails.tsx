@@ -20,10 +20,21 @@ export default function LockDetails() {
   const [topUpAmount, setTopUpAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const lockIdBigInt = lockId ? BigInt(lockId) : undefined;
-  const { data: lock, isLoading } = useGetLockInfo(lockIdBigInt);
-  const { data: tokenMetadata } = useTokenMetadata(lock?.lpToken);
+  const { data: lockData, isLoading, refetch } = useGetLockInfo(lockId);
   const { triggerWithdrawal, cancelWithdrawalTrigger, withdrawLP, claimLPFees, topUpLock } = useLPLocker();
+
+  // Parse the lock data tuple
+  const lock = lockData ? {
+    owner: lockData[0] as `0x${string}`,
+    feeReceiver: lockData[1] as `0x${string}`,
+    tokenContract: lockData[2] as `0x${string}`,
+    amount: lockData[3],
+    lockUpEndTime: lockData[4],
+    isLiquidityLocked: lockData[5],
+    isWithdrawalTriggered: lockData[6],
+  } : null;
+
+  const { data: tokenMetadata } = useTokenMetadata(lock?.tokenContract);
 
   if (!isConnected) {
     return (
@@ -44,7 +55,7 @@ export default function LockDetails() {
     );
   }
 
-  if (!lock || !lockIdBigInt) {
+  if (!lock || !lockId) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <p className="text-xs">lock not found</p>
@@ -53,15 +64,16 @@ export default function LockDetails() {
   }
 
   const status = getLockStatus(lock);
-  const unlockDate = calculateUnlockDate(lock.withdrawalTriggeredAt);
+  const unlockDate = calculateUnlockDate(lock.lockUpEndTime);
   const timeRemaining = getTimeRemaining(unlockDate);
   const isOwner = address === lock.owner;
 
   const handleTriggerWithdrawal = async () => {
     setIsProcessing(true);
     try {
-      await triggerWithdrawal(lockIdBigInt);
+      await triggerWithdrawal(lockId);
       toast({ description: 'withdrawal triggered' });
+      await refetch();
     } catch (error: any) {
       toast({ description: error.message || 'failed', variant: 'destructive' });
     } finally {
@@ -72,8 +84,9 @@ export default function LockDetails() {
   const handleCancelTrigger = async () => {
     setIsProcessing(true);
     try {
-      await cancelWithdrawalTrigger(lockIdBigInt);
+      await cancelWithdrawalTrigger(lockId);
       toast({ description: 'trigger cancelled' });
+      await refetch();
     } catch (error: any) {
       toast({ description: error.message || 'failed', variant: 'destructive' });
     } finally {
@@ -86,7 +99,7 @@ export default function LockDetails() {
     setIsProcessing(true);
     try {
       const amount = parseUnits(withdrawAmount, tokenMetadata.decimals);
-      await withdrawLP(lockIdBigInt, amount);
+      await withdrawLP(lockId, amount);
       toast({ description: 'withdrawn' });
       navigate('/app');
     } catch (error: any) {
@@ -99,7 +112,7 @@ export default function LockDetails() {
   const handleClaimFees = async () => {
     setIsProcessing(true);
     try {
-      await claimLPFees(lockIdBigInt);
+      await claimLPFees(lockId);
       toast({ description: 'fees claimed' });
     } catch (error: any) {
       toast({ description: error.message || 'failed', variant: 'destructive' });
@@ -113,9 +126,10 @@ export default function LockDetails() {
     setIsProcessing(true);
     try {
       const amount = parseUnits(topUpAmount, tokenMetadata.decimals);
-      await topUpLock(lockIdBigInt, amount);
+      await topUpLock(lockId, amount);
       toast({ description: 'topped up' });
       setTopUpAmount('');
+      await refetch();
     } catch (error: any) {
       toast({ description: error.message || 'failed', variant: 'destructive' });
     } finally {
@@ -142,7 +156,7 @@ export default function LockDetails() {
       <div className="max-w-2xl mx-auto px-4 py-12">
         <div className="space-y-8">
           <div>
-            <h1 className="text-sm tracking-tight mb-1">lock #{lockId}</h1>
+            <h1 className="text-sm tracking-tight mb-1">lock #{lockId.slice(0, 10)}...</h1>
             <p className="text-xs text-muted-foreground">
               status: <span className="text-foreground">{status}</span>
             </p>
@@ -156,7 +170,7 @@ export default function LockDetails() {
               </div>
               <div>
                 <p className="text-muted-foreground mb-1">lp token</p>
-                <AddressDisplay address={lock.lpToken} />
+                <AddressDisplay address={lock.tokenContract} />
               </div>
               <div>
                 <p className="text-muted-foreground mb-1">amount</p>
@@ -231,28 +245,30 @@ export default function LockDetails() {
                 </Button>
               </div>
 
-              <div className="border border-border p-6 space-y-4">
-                <h2 className="text-xs font-medium">top up lock</h2>
-                <div className="space-y-2">
-                  <Label htmlFor="topup" className="text-xs">additional amount</Label>
-                  <Input
-                    id="topup"
-                    type="number"
-                    placeholder="0.0"
-                    value={topUpAmount}
-                    onChange={(e) => setTopUpAmount(e.target.value)}
-                    className="text-xs"
-                  />
-                  <Button
-                    onClick={handleTopUp}
-                    disabled={isProcessing || !topUpAmount}
-                    size="sm"
-                    className="w-full"
-                  >
-                    top up
-                  </Button>
+              {status === 'active' && (
+                <div className="border border-border p-6 space-y-4">
+                  <h2 className="text-xs font-medium">top up lock</h2>
+                  <div className="space-y-2">
+                    <Label htmlFor="topup" className="text-xs">additional amount</Label>
+                    <Input
+                      id="topup"
+                      type="number"
+                      placeholder="0.0"
+                      value={topUpAmount}
+                      onChange={(e) => setTopUpAmount(e.target.value)}
+                      className="text-xs"
+                    />
+                    <Button
+                      onClick={handleTopUp}
+                      disabled={isProcessing || !topUpAmount}
+                      size="sm"
+                      className="w-full"
+                    >
+                      top up
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>

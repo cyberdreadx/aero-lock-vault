@@ -12,17 +12,16 @@ export function formatTokenAmount(amount: bigint, decimals: number = 18): string
   });
 }
 
-export function calculateUnlockDate(triggeredAt: bigint): Date | null {
-  if (triggeredAt === 0n) return null;
-  const unlockTimestamp = Number(triggeredAt) + 30 * 24 * 60 * 60; // 30 days
-  return new Date(unlockTimestamp * 1000);
+export function calculateUnlockDate(lockUpEndTime: bigint): Date | null {
+  if (lockUpEndTime === 0n) return null;
+  return new Date(Number(lockUpEndTime) * 1000);
 }
 
 export function getLockStatus(lock: LockInfo): LockStatus {
-  if (lock.isWithdrawn) return 'withdrawn';
+  if (!lock.isLiquidityLocked) return 'withdrawn';
   
-  if (lock.withdrawalTriggeredAt > 0n) {
-    const unlockDate = calculateUnlockDate(lock.withdrawalTriggeredAt);
+  if (lock.isWithdrawalTriggered && lock.lockUpEndTime > 0n) {
+    const unlockDate = calculateUnlockDate(lock.lockUpEndTime);
     if (unlockDate && unlockDate <= new Date()) {
       return 'unlocked';
     }

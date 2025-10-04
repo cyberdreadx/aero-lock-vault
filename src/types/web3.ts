@@ -1,14 +1,15 @@
 export interface LockInfo {
   owner: `0x${string}`;
-  lpToken: `0x${string}`;
+  feeReceiver: `0x${string}`;
+  tokenContract: `0x${string}`;
   amount: bigint;
-  lockedAt: bigint;
-  withdrawalTriggeredAt: bigint;
-  isWithdrawn: boolean;
+  lockUpEndTime: bigint;
+  isLiquidityLocked: boolean;
+  isWithdrawalTriggered: boolean;
 }
 
 export interface LockWithId extends LockInfo {
-  lockId: bigint;
+  lockId: string; // bytes32 as hex string
 }
 
 export interface TokenMetadata {
