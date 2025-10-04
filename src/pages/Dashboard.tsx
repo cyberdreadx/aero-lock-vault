@@ -28,7 +28,7 @@ export default function Dashboard() {
           aerolock
         </Link>
         <div className="flex items-center gap-3">
-          <Link to="/create">
+          <Link to="/deploy">
             <Button variant="outline" size="sm">
               create lock
             </Button>
@@ -51,7 +51,7 @@ export default function Dashboard() {
           {!isLoading && locks.length === 0 && (
             <div className="border border-border p-8 text-center space-y-4">
               <p className="text-xs text-muted-foreground">no locks found</p>
-              <Link to="/create">
+              <Link to="/deploy">
                 <Button variant="outline" size="sm">
                   create first lock
                 </Button>
@@ -96,7 +96,7 @@ export default function Dashboard() {
                         </td>
                         <td className="p-3 text-muted-foreground">{timeRemaining}</td>
                         <td className="p-3">
-                          <Link to={`/lock/${lock.lockId}`}>
+                          <Link to={`/locker/${lock.lockId}`}>
                             <Button variant="ghost" size="sm">
                               manage
                             </Button>
