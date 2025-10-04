@@ -21,6 +21,7 @@ import {
 } from '@/hooks/web3/useLPLocker';
 import { useLockerLocks } from '@/hooks/web3/useUserLocks';
 import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
+import { formatTokenAmount } from '@/lib/web3/utils';
 import { LockCard } from '@/components/web3/LockCard';
 
 export default function LockerDetails() {
