@@ -12,4 +12,4 @@ export const BASE_SCAN_URL = 'https://basescan.org';
 export const TIMELOCK_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 
 export const DEPLOYMENT_FEE_USD = 75; // Target fee in USD
-export const TREASURY_ADDRESS = '0xYourTreasuryAddressHere' as const; // Replace with your actual treasury address
+export const TREASURY_ADDRESS = '0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e' as const;
