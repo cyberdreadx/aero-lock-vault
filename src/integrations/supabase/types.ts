@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      deployed_lockers: {
+        Row: {
+          created_at: string | null
+          deployed_at: string | null
+          deployment_tx_hash: string | null
+          fee_receiver_address: string
+          id: string
+          locker_address: string
+          lp_token_address: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          deployed_at?: string | null
+          deployment_tx_hash?: string | null
+          fee_receiver_address: string
+          id?: string
+          locker_address: string
+          lp_token_address: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          deployed_at?: string | null
+          deployment_tx_hash?: string | null
+          fee_receiver_address?: string
+          id?: string
+          locker_address?: string
+          lp_token_address?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

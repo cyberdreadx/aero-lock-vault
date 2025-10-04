@@ -8,10 +8,12 @@ import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
 import { config } from '@/lib/web3/config';
 import '@rainbow-me/rainbowkit/styles.css';
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import CreateLock from "./pages/CreateLock";
-import LockDetails from "./pages/LockDetails";
+import DeployLocker from "./pages/DeployLocker";
+import LockerDetails from "./pages/LockerDetails";
 import NotFound from "./pages/NotFound";
+import { AuthGuard } from "./components/auth/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -29,9 +31,10 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/app" element={<Dashboard />} />
-              <Route path="/create" element={<CreateLock />} />
-              <Route path="/lock/:lockId" element={<LockDetails />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/lockers" element={<AuthGuard><Dashboard /></AuthGuard>} />
+              <Route path="/deploy" element={<AuthGuard><DeployLocker /></AuthGuard>} />
+              <Route path="/locker/:lockerAddress" element={<AuthGuard><LockerDetails /></AuthGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
