@@ -88,13 +88,13 @@ export function useLPLocker(lockerAddress?: `0x${string}`) {
     } as any);
   };
 
-  const changeFeeReceiver = async (lockId: string, newFeeReceiver: `0x${string}`) => {
+  const changeFeeReceiver = async (newFeeReceiver: `0x${string}`) => {
     if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
       address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'changeFeeReceiver',
-      args: [lockId as `0x${string}`, newFeeReceiver],
+      args: [newFeeReceiver],
     } as any);
   };
 
@@ -195,7 +195,7 @@ export function useLockerLPToken(lockerAddress?: `0x${string}`) {
   return useReadContract({
     address: lockerAddress,
     abi: LPLockerABI,
-    functionName: 'lpToken',
+    functionName: 'tokenContract',
     query: {
       enabled: !!lockerAddress,
     },
@@ -223,7 +223,7 @@ export function useLockerBalance(lockerAddress?: `0x${string}`) {
   return useReadContract({
     address: lockerAddress,
     abi: LPLockerABI,
-    functionName: 'getLockedLPBalance',
+    functionName: 'getLPBalance',
     query: {
       enabled: !!lockerAddress,
     },
@@ -245,5 +245,7 @@ export function useIsLockerOwner(lockerAddress?: `0x${string}`) {
 export function useIsPendingOwner(lockerAddress?: `0x${string}`) {
   const { address } = useAccount();
   const { data: pendingOwner } = useLockerPendingOwner(lockerAddress);
-  return address && pendingOwner ? address.toLowerCase() === pendingOwner.toLowerCase() : false;
+  return address && pendingOwner && pendingOwner !== '0x0000000000000000000000000000000000000000' 
+    ? address.toLowerCase() === pendingOwner.toLowerCase() 
+    : false;
 }

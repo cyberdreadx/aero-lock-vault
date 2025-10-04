@@ -155,6 +155,34 @@ export const LPLockerABI = [
   },
   {
     type: 'function',
+    name: 'pendingOwner',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }]
+  },
+  {
+    type: 'function',
+    name: 'acceptOwnership',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: []
+  },
+  {
+    type: 'function',
+    name: 'transferOwnership',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'newOwner', type: 'address' }],
+    outputs: []
+  },
+  {
+    type: 'function',
+    name: 'renounceOwnership',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: []
+  },
+  {
+    type: 'function',
     name: 'feeReceiver',
     stateMutability: 'view',
     inputs: [],

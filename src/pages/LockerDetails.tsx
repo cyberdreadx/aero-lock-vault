@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import { 
   useLPLocker, 
-  useLockerOwner, 
+  useLockerOwner,
   useLockerPendingOwner,
   useLockerLPToken,
   useLockerFeeReceiver,
@@ -32,6 +32,7 @@ export default function LockerDetails() {
   const [topUpLockId, setTopUpLockId] = useState('');
   const [topUpAmount, setTopUpAmount] = useState('');
   const [newOwner, setNewOwner] = useState('');
+  const [newFeeReceiver, setNewFeeReceiver] = useState('');
   const [isPending, setIsPending] = useState(false);
 
   const { data: owner } = useLockerOwner(validAddress);
@@ -172,10 +173,27 @@ export default function LockerDetails() {
     setIsPending(true);
     try {
       await locker.transferOwnership(newOwner as `0x${string}`);
-      toast({ description: 'ownership transfer initiated!' });
+      toast({ description: 'ownership transferred!' });
       setNewOwner('');
     } catch (error: any) {
       toast({ description: error.message || 'failed to transfer ownership', variant: 'destructive' });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleChangeFeeReceiver = async () => {
+    if (!newFeeReceiver || !newFeeReceiver.startsWith('0x') || newFeeReceiver.length !== 42) {
+      toast({ description: 'invalid address', variant: 'destructive' });
+      return;
+    }
+    setIsPending(true);
+    try {
+      await locker.changeFeeReceiver(newFeeReceiver as `0x${string}`);
+      toast({ description: 'fee receiver updated!' });
+      setNewFeeReceiver('');
+    } catch (error: any) {
+      toast({ description: error.message || 'failed to update fee receiver', variant: 'destructive' });
     } finally {
       setIsPending(false);
     }
@@ -295,6 +313,25 @@ export default function LockerDetails() {
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
                     new owner must call acceptOwnership to complete transfer
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-xs">change fee receiver</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="0x..."
+                      value={newFeeReceiver}
+                      onChange={(e) => setNewFeeReceiver(e.target.value)}
+                      className="text-xs font-mono"
+                    />
+                    <Button size="sm" onClick={handleChangeFeeReceiver} disabled={isPending || !newFeeReceiver}>
+                      update
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    update the address that receives claimed fees
                   </p>
                 </div>
               </div>
