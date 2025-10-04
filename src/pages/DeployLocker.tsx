@@ -95,8 +95,17 @@ export default function DeployLocker() {
         payment_tx_hash: paymentHash,
       }, {
         onSuccess: () => {
-          toast({ description: 'locker deployed and verified successfully!' });
-          navigate('/lockers');
+          const shareUrl = `${window.location.origin}/locker/${receipt.contractAddress}`;
+          toast({ 
+            title: 'locker deployed successfully!',
+            description: `share your locked liquidity at: ${shareUrl}`,
+          });
+          
+          // Copy link to clipboard automatically
+          navigator.clipboard.writeText(shareUrl);
+          
+          // Navigate to dashboard
+          setTimeout(() => navigate('/lockers'), 2000);
         },
         onError: (error) => {
           console.error('Failed to verify and save locker:', error);

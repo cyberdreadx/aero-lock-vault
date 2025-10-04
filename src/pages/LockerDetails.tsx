@@ -259,6 +259,52 @@ export default function LockerDetails() {
             ← back to lockers
           </Link>
 
+          {/* Hero Section - Perfect for Sharing */}
+          <Card className="p-8 bg-gradient-to-br from-primary/5 via-background to-primary/5 border-primary/20">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                  liquidity locked
+                </span>
+              </div>
+              
+              <h1 className="text-2xl font-bold tracking-tight">
+                {lockedBalance !== undefined && tokenMetadata
+                  ? `${formatTokenAmount(lockedBalance, tokenMetadata.decimals)} ${tokenMetadata.symbol}`
+                  : '...'} Secured
+              </h1>
+              
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                This liquidity pool is locked in a smart contract with time-based withdrawal controls
+              </p>
+
+              <div className="flex items-center justify-center gap-3 pt-4">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast({ description: 'share link copied to clipboard!' });
+                  }}
+                >
+                  📋 copy share link
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    const text = `🔒 Liquidity Locked!\n\n${lockedBalance !== undefined && tokenMetadata ? formatTokenAmount(lockedBalance, tokenMetadata.decimals) : ''} ${tokenMetadata?.symbol || 'LP'} tokens secured in AeroLock\n\nView: ${window.location.href}`;
+                    navigator.clipboard.writeText(text);
+                    toast({ description: 'shareable message copied!' });
+                  }}
+                >
+                  💬 copy for socials
+                </Button>
+              </div>
+            </div>
+          </Card>
+
           {/* Locker Info */}
           <Card className="p-6">
             <div className="space-y-4">
