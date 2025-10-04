@@ -17,22 +17,20 @@ import { Check, AlertCircle } from 'lucide-react';
 export default function CreateLock() {
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
+  const [lpTokenAddress, setLpTokenAddress] = useState<string>('');
   const [amount, setAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
 
-  // Get the LP token from the locker contract
-  const { data: lpTokenAddress } = useReadContract({
-    address: CONTRACTS.LP_LOCKER,
-    abi: LPLockerABI,
-    functionName: 'tokenContract',
-  }) as { data: `0x${string}` | undefined };
+  const isValidAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
 
-  const { data: tokenMetadata } = useTokenMetadata(lpTokenAddress);
-  const { data: balance, refetch: refetchBalance } = useTokenBalance(lpTokenAddress);
-  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(lpTokenAddress, CONTRACTS.LP_LOCKER);
-  const { approve } = useERC20(lpTokenAddress);
+  const validLpAddress = isValidAddress ? (lpTokenAddress as `0x${string}`) : undefined;
+  
+  const { data: tokenMetadata } = useTokenMetadata(validLpAddress);
+  const { data: balance, refetch: refetchBalance } = useTokenBalance(validLpAddress);
+  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(validLpAddress, CONTRACTS.LP_LOCKER);
+  const { approve } = useERC20(validLpAddress);
   const { lockLiquidity } = useLPLocker();
   const { isSuccess: isTxSuccess } = useWaitForTransaction(txHash);
 
@@ -41,7 +39,7 @@ export default function CreateLock() {
   const hasBalance = balance !== undefined && balance > 0n;
 
   const handleApprove = async () => {
-    if (!lpTokenAddress || !parsedAmount) return;
+    if (!validLpAddress || !parsedAmount) return;
     
     setIsApproving(true);
     try {
@@ -104,17 +102,32 @@ export default function CreateLock() {
         <div className="space-y-6">
           <div>
             <h1 className="text-sm tracking-tight mb-1">create lock</h1>
-            <p className="text-xs text-muted-foreground">tokens locked indefinitely. 30-day exit countdown when you trigger withdrawal.</p>
+            <p className="text-xs text-muted-foreground">lock any aerodrome lp pair. tokens locked indefinitely until you trigger withdrawal.</p>
           </div>
 
           <div className="space-y-4 border border-border p-6">
-            {lpTokenAddress && tokenMetadata && (
-              <div className="space-y-3 pb-4 border-b border-border">
+            <div className="space-y-2">
+              <Label htmlFor="lpToken" className="text-xs">aerodrome lp token address</Label>
+              <Input
+                id="lpToken"
+                type="text"
+                placeholder="0x..."
+                value={lpTokenAddress}
+                onChange={(e) => setLpTokenAddress(e.target.value)}
+                className="text-xs font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                enter the address of any aerodrome lp token pair
+              </p>
+            </div>
+
+            {isValidAddress && tokenMetadata && (
+              <div className="space-y-3 pt-2 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium">accepted lp token</p>
+                  <p className="text-xs font-medium">token detected</p>
                   {hasBalance && (
                     <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
-                      <Check className="h-3 w-3" /> found in wallet
+                      <Check className="h-3 w-3" /> in wallet
                     </span>
                   )}
                   {!hasBalance && balance !== undefined && (
@@ -133,10 +146,12 @@ export default function CreateLock() {
                     <span className="text-xs text-muted-foreground">name</span>
                     <span className="text-xs font-medium">{tokenMetadata.name}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">address</span>
-                    <span className="text-[10px] font-mono">{lpTokenAddress.slice(0, 8)}...{lpTokenAddress.slice(-6)}</span>
-                  </div>
+                  {balance !== undefined && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">your balance</span>
+                      <span className="text-xs font-medium">{formatTokenAmount(balance, tokenMetadata.decimals)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {!hasBalance && balance !== undefined && (
@@ -146,6 +161,12 @@ export default function CreateLock() {
                     </p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {isValidAddress && !tokenMetadata && validLpAddress && (
+              <div className="bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground">loading token info...</p>
               </div>
             )}
 
@@ -169,7 +190,7 @@ export default function CreateLock() {
             {needsApproval ? (
               <Button
                 onClick={handleApprove}
-                disabled={isApproving || !lpTokenAddress || !parsedAmount}
+                disabled={isApproving || !validLpAddress || !parsedAmount || !hasBalance}
                 className="w-full"
                 size="sm"
               >
@@ -178,7 +199,7 @@ export default function CreateLock() {
             ) : (
               <Button
                 onClick={handleLock}
-                disabled={isLocking || !lpTokenAddress || !parsedAmount}
+                disabled={isLocking || !validLpAddress || !parsedAmount || !hasBalance}
                 className="w-full"
                 size="sm"
               >
