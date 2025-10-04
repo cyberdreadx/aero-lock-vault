@@ -1,4 +1,4 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { LPLockerABI } from '@/lib/web3/abis/LPLockerABI';
 import type { LockInfo } from '@/types/web3';
 
@@ -69,6 +69,45 @@ export function useLPLocker(lockerAddress?: `0x${string}`) {
     } as any);
   };
 
+  const acceptOwnership = async () => {
+    if (!lockerAddress) throw new Error('Locker address required');
+    return await writeContractAsync({
+      address: lockerAddress,
+      abi: LPLockerABI,
+      functionName: 'acceptOwnership',
+    } as any);
+  };
+
+  const transferOwnership = async (newOwner: `0x${string}`) => {
+    if (!lockerAddress) throw new Error('Locker address required');
+    return await writeContractAsync({
+      address: lockerAddress,
+      abi: LPLockerABI,
+      functionName: 'transferOwnership',
+      args: [newOwner],
+    } as any);
+  };
+
+  const changeFeeReceiver = async (lockId: string, newFeeReceiver: `0x${string}`) => {
+    if (!lockerAddress) throw new Error('Locker address required');
+    return await writeContractAsync({
+      address: lockerAddress,
+      abi: LPLockerABI,
+      functionName: 'changeFeeReceiver',
+      args: [lockId as `0x${string}`, newFeeReceiver],
+    } as any);
+  };
+
+  const recoverToken = async (token: `0x${string}`, amount: bigint) => {
+    if (!lockerAddress) throw new Error('Locker address required');
+    return await writeContractAsync({
+      address: lockerAddress,
+      abi: LPLockerABI,
+      functionName: 'recoverToken',
+      args: [token, amount],
+    } as any);
+  };
+
   return {
     lockLiquidity,
     triggerWithdrawal,
@@ -76,6 +115,10 @@ export function useLPLocker(lockerAddress?: `0x${string}`) {
     withdrawLP,
     claimLPFees,
     topUpLock,
+    acceptOwnership,
+    transferOwnership,
+    changeFeeReceiver,
+    recoverToken,
   };
 }
 
@@ -115,4 +158,92 @@ export function useWaitForTransaction(hash?: `0x${string}`) {
   return useWaitForTransactionReceipt({
     hash,
   });
+}
+
+/**
+ * Get the owner of the locker contract
+ */
+export function useLockerOwner(lockerAddress?: `0x${string}`) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'owner',
+    query: {
+      enabled: !!lockerAddress,
+    },
+  }) as { data: `0x${string}` | undefined; isLoading: boolean; refetch: () => void };
+}
+
+/**
+ * Get the pending owner of the locker contract
+ */
+export function useLockerPendingOwner(lockerAddress?: `0x${string}`) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'pendingOwner',
+    query: {
+      enabled: !!lockerAddress,
+    },
+  }) as { data: `0x${string}` | undefined; isLoading: boolean; refetch: () => void };
+}
+
+/**
+ * Get the LP token address of the locker
+ */
+export function useLockerLPToken(lockerAddress?: `0x${string}`) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'lpToken',
+    query: {
+      enabled: !!lockerAddress,
+    },
+  }) as { data: `0x${string}` | undefined; isLoading: boolean; refetch: () => void };
+}
+
+/**
+ * Get the fee receiver address of the locker
+ */
+export function useLockerFeeReceiver(lockerAddress?: `0x${string}`) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'feeReceiver',
+    query: {
+      enabled: !!lockerAddress,
+    },
+  }) as { data: `0x${string}` | undefined; isLoading: boolean; refetch: () => void };
+}
+
+/**
+ * Get the locked LP token balance
+ */
+export function useLockerBalance(lockerAddress?: `0x${string}`) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'getLockedLPBalance',
+    query: {
+      enabled: !!lockerAddress,
+    },
+  }) as { data: bigint | undefined; isLoading: boolean; refetch: () => void };
+}
+
+/**
+ * Check if the connected wallet is the owner
+ */
+export function useIsLockerOwner(lockerAddress?: `0x${string}`) {
+  const { address } = useAccount();
+  const { data: owner } = useLockerOwner(lockerAddress);
+  return address && owner ? address.toLowerCase() === owner.toLowerCase() : false;
+}
+
+/**
+ * Check if the connected wallet is the pending owner
+ */
+export function useIsPendingOwner(lockerAddress?: `0x${string}`) {
+  const { address } = useAccount();
+  const { data: pendingOwner } = useLockerPendingOwner(lockerAddress);
+  return address && pendingOwner ? address.toLowerCase() === pendingOwner.toLowerCase() : false;
 }
