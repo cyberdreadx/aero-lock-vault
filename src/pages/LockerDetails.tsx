@@ -273,31 +273,30 @@ export default function LockerDetails() {
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">amount</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="0.0"
-                    value={lockAmount}
-                    onChange={(e) => setLockAmount(e.target.value)}
-                    className="text-xs flex-1"
-                  />
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => {
-                      if (userBalance !== undefined && tokenMetadata) {
-                        setLockAmount(formatUnits(userBalance, tokenMetadata.decimals));
-                      }
-                    }}
-                    disabled={userBalance === undefined || userBalance === 0n}
-                  >
-                    max
-                  </Button>
-                </div>
+                <Input
+                  type="text"
+                  placeholder="0.0"
+                  value={lockAmount}
+                  onChange={(e) => setLockAmount(e.target.value)}
+                  className="text-xs"
+                />
                 {userBalance !== undefined && tokenMetadata && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    your balance: {formatUnits(userBalance, tokenMetadata.decimals)} {tokenMetadata.symbol}
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[10px] text-muted-foreground">
+                      your balance: {formatUnits(userBalance, tokenMetadata.decimals)} {tokenMetadata.symbol}
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => {
+                        setLockAmount(formatUnits(userBalance, tokenMetadata.decimals));
+                      }}
+                      disabled={userBalance === 0n}
+                      className="h-5 px-2 text-[10px]"
+                    >
+                      max
+                    </Button>
+                  </div>
                 )}
               </div>
               <Button size="sm" onClick={handleLockLiquidity} disabled={isPending || !lockAmount}>
@@ -368,27 +367,31 @@ export default function LockerDetails() {
               </div>
               <div>
                 <Label className="text-xs">amount</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="0.0"
-                    value={topUpAmount}
-                    onChange={(e) => setTopUpAmount(e.target.value)}
-                    className="text-xs flex-1"
-                  />
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => {
-                      if (userBalance !== undefined && tokenMetadata) {
+                <Input
+                  type="text"
+                  placeholder="0.0"
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(e.target.value)}
+                  className="text-xs"
+                />
+                {userBalance !== undefined && tokenMetadata && (
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[10px] text-muted-foreground">
+                      your balance: {formatUnits(userBalance, tokenMetadata.decimals)} {tokenMetadata.symbol}
+                    </p>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => {
                         setTopUpAmount(formatUnits(userBalance, tokenMetadata.decimals));
-                      }
-                    }}
-                    disabled={userBalance === undefined || userBalance === 0n}
-                  >
-                    max
-                  </Button>
-                </div>
+                      }}
+                      disabled={userBalance === 0n}
+                      className="h-5 px-2 text-[10px]"
+                    >
+                      max
+                    </Button>
+                  </div>
+                )}
               </div>
               <Button size="sm" onClick={handleTopUpLock} disabled={isPending || !topUpLockId || !topUpAmount}>
                 top up lock
