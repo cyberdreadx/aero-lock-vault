@@ -1,5 +1,6 @@
 import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, Twitter, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   return (
@@ -15,9 +16,11 @@ const Index = () => {
             <div className="flex items-center gap-4 sm:gap-6 text-xs">
               <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">features</a>
               <a href="#how" className="hidden sm:inline text-muted-foreground hover:text-foreground transition-colors">how it works</a>
-              <Button size="sm" className="h-7 text-xs px-3">
-                launch app
-              </Button>
+              <Link to="/app">
+                <Button size="sm" className="h-7 text-xs px-3">
+                  launch app
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -43,9 +46,11 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="h-9 text-xs px-6">
-                start locking <ArrowRight className="ml-1.5 h-3 w-3" />
-              </Button>
+              <Link to="/app">
+                <Button className="h-9 text-xs px-6">
+                  start locking <ArrowRight className="ml-1.5 h-3 w-3" />
+                </Button>
+              </Link>
               <Button variant="outline" className="h-9 text-xs px-6">
                 read docs
               </Button>
@@ -200,9 +205,11 @@ const Index = () => {
             <p className="text-xs sm:text-sm text-muted-foreground mb-6">
               join the degens securing their aerodrome positions
             </p>
-            <Button className="h-9 text-xs px-6">
-              launch app <ArrowRight className="ml-1.5 h-3 w-3" />
-            </Button>
+            <Link to="/app">
+              <Button className="h-9 text-xs px-6">
+                launch app <ArrowRight className="ml-1.5 h-3 w-3" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
