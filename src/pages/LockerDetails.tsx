@@ -20,7 +20,7 @@ import {
   useIsPendingOwner
 } from '@/hooks/web3/useLPLocker';
 import { useLockerLocks } from '@/hooks/web3/useUserLocks';
-import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
+import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
 import { getLockStatus, formatTokenAmount, calculateUnlockDate, getTimeRemaining } from '@/lib/web3/utils';
 
 export default function LockerDetails() {
@@ -45,9 +45,11 @@ export default function LockerDetails() {
 
   const { locks, isLoading: isLoadingLocks, refetch: refetchLocks } = useLockerLocks(validAddress);
   const { data: tokenMetadata } = useTokenMetadata(lpToken);
-  const { data: userBalance } = useTokenBalance(lpToken);
+  const { data: userBalance, refetch: refetchBalance } = useTokenBalance(lpToken);
+  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(lpToken, validAddress);
 
   const locker = useLPLocker(validAddress);
+  const token = useERC20(lpToken);
 
   if (!isConnected) {
     return (
@@ -77,8 +79,25 @@ export default function LockerDetails() {
       toast({ description: 'liquidity locked successfully!' });
       setLockAmount('');
       refetchLocks();
+      refetchBalance();
+      refetchAllowance();
     } catch (error: any) {
       toast({ description: error.message || 'failed to lock liquidity', variant: 'destructive' });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleApproveLock = async () => {
+    if (!lockAmount || !tokenMetadata || !lpToken) return;
+    setIsPending(true);
+    try {
+      const amount = parseUnits(lockAmount, tokenMetadata.decimals);
+      await token.approve(validAddress, amount);
+      toast({ description: 'approval successful! you can now lock liquidity' });
+      refetchAllowance();
+    } catch (error: any) {
+      toast({ description: error.message || 'approval failed', variant: 'destructive' });
     } finally {
       setIsPending(false);
     }
@@ -94,8 +113,25 @@ export default function LockerDetails() {
       setTopUpLockId('');
       setTopUpAmount('');
       refetchLocks();
+      refetchBalance();
+      refetchAllowance();
     } catch (error: any) {
       toast({ description: error.message || 'failed to top up lock', variant: 'destructive' });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleApproveTopUp = async () => {
+    if (!topUpAmount || !tokenMetadata || !lpToken) return;
+    setIsPending(true);
+    try {
+      const amount = parseUnits(topUpAmount, tokenMetadata.decimals);
+      await token.approve(validAddress, amount);
+      toast({ description: 'approval successful! you can now top up' });
+      refetchAllowance();
+    } catch (error: any) {
+      toast({ description: error.message || 'approval failed', variant: 'destructive' });
     } finally {
       setIsPending(false);
     }
@@ -299,9 +335,22 @@ export default function LockerDetails() {
                   </div>
                 )}
               </div>
-              <Button size="sm" onClick={handleLockLiquidity} disabled={isPending || !lockAmount}>
-                lock liquidity
-              </Button>
+              
+              {(() => {
+                if (!lockAmount || !tokenMetadata) return null;
+                const amount = parseUnits(lockAmount, tokenMetadata.decimals);
+                const needsApproval = !allowance || allowance < amount;
+                
+                return needsApproval ? (
+                  <Button size="sm" onClick={handleApproveLock} disabled={isPending}>
+                    {isPending ? 'approving...' : 'approve token'}
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={handleLockLiquidity} disabled={isPending}>
+                    {isPending ? 'locking...' : 'lock liquidity'}
+                  </Button>
+                );
+              })()}
             </div>
           </Card>
 
@@ -393,9 +442,27 @@ export default function LockerDetails() {
                   </div>
                 )}
               </div>
-              <Button size="sm" onClick={handleTopUpLock} disabled={isPending || !topUpLockId || !topUpAmount}>
-                top up lock
-              </Button>
+              
+              {(() => {
+                if (!topUpAmount || !tokenMetadata) return (
+                  <Button size="sm" disabled>
+                    top up lock
+                  </Button>
+                );
+                
+                const amount = parseUnits(topUpAmount, tokenMetadata.decimals);
+                const needsApproval = !allowance || allowance < amount;
+                
+                return needsApproval ? (
+                  <Button size="sm" onClick={handleApproveTopUp} disabled={isPending || !topUpLockId}>
+                    {isPending ? 'approving...' : 'approve token'}
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={handleTopUpLock} disabled={isPending || !topUpLockId}>
+                    {isPending ? 'topping up...' : 'top up lock'}
+                  </Button>
+                );
+              })()}
             </div>
           </Card>
 
