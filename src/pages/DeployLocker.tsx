@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAccount } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, useDeployContract } from 'wagmi';
 import { WalletButton } from '@/components/web3/WalletButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,14 +9,16 @@ import { toast } from '@/hooks/use-toast';
 import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
 import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { formatUnits } from 'viem';
+import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
 
 export default function DeployLocker() {
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
   const [lpTokenAddress, setLpTokenAddress] = useState<string>('');
   const [feeReceiverAddress, setFeeReceiverAddress] = useState<string>('');
-  const [isDeploying, setIsDeploying] = useState(false);
   const saveLocker = useSaveDeployedLocker();
+  const { deployContract, data: hash, isPending } = useDeployContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const isValidLpAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
   const isValidFeeAddress = feeReceiverAddress.startsWith('0x') && feeReceiverAddress.length === 42;
@@ -28,35 +30,26 @@ export default function DeployLocker() {
   const handleDeploy = async () => {
     if (!address || !validLpAddress || !isValidFeeAddress) return;
 
-    setIsDeploying(true);
     try {
-      // TODO: Replace this with actual factory contract deployment
-      // Example: const deployedAddress = await deployLockerContract(validLpAddress, feeReceiverAddress);
-      
-      // Mock deployment for now - YOU NEED TO IMPLEMENT ACTUAL FACTORY DEPLOYMENT
-      const mockDeployedAddress = '0x' + Math.random().toString(16).slice(2, 42);
-      
       toast({ description: 'deploying locker contract...' });
       
-      // Simulate deployment delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Save to database
-      await saveLocker.mutateAsync({
-        locker_address: mockDeployedAddress,
-        lp_token_address: lpTokenAddress,
-        fee_receiver_address: feeReceiverAddress,
-        deployment_tx_hash: '0x' + Math.random().toString(16).slice(2),
+      deployContract({
+        abi: LP_LOCKER_CONSTRUCTOR_ABI,
+        bytecode: LP_LOCKER_BYTECODE,
+        args: [validLpAddress, address, feeReceiverAddress as `0x${string}`],
       });
-
-      toast({ description: 'locker deployed successfully!' });
-      navigate('/lockers');
     } catch (error: any) {
       toast({ description: error.message || 'deployment failed', variant: 'destructive' });
-    } finally {
-      setIsDeploying(false);
     }
   };
+
+  // Handle successful deployment
+  useEffect(() => {
+    if (isSuccess && hash) {
+      toast({ description: 'locker deployed successfully!' });
+      navigate('/lockers');
+    }
+  }, [isSuccess, hash, navigate]);
 
   if (!isConnected) {
     return (
@@ -149,18 +142,18 @@ export default function DeployLocker() {
 
             <Button
               onClick={handleDeploy}
-              disabled={isDeploying || !isValidLpAddress || !isValidFeeAddress}
+              disabled={isPending || isConfirming || !isValidLpAddress || !isValidFeeAddress}
               className="w-full"
               size="sm"
             >
-              {isDeploying ? 'deploying...' : 'deploy locker'}
+              {isPending || isConfirming ? 'deploying...' : 'deploy locker'}
             </Button>
           </div>
 
-          <div className="border border-amber-500/20 bg-amber-500/10 p-4">
-            <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
-              ⚠️ <strong>developer note:</strong> this currently uses mock deployment. 
-              you need to implement actual factory contract deployment in handleDeploy().
+          <div className="border border-blue-500/20 bg-blue-500/10 p-4">
+            <p className="text-[10px] text-blue-600 dark:text-blue-400 leading-relaxed">
+              ℹ️ <strong>note:</strong> deployment will create a new locker contract on-chain.
+              you'll need to approve the transaction in your wallet.
             </p>
           </div>
 
