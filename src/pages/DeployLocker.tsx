@@ -142,57 +142,20 @@ export default function DeployLocker() {
               </p>
             </div>
 
-            {/* Step 1: Payment */}
+            {/* Step 1: Configuration */}
             <div className="border border-border p-6">
               <div className="flex items-start gap-3 mb-4">
                 <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                  hasPaidFee ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+                  isValidLpAddress && isValidFeeAddress && tokenMetadata 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-primary text-primary-foreground'
                 }`}>
-                  {hasPaidFee ? <CheckCircle2 className="h-4 w-4" /> : '1'}
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-xs font-medium mb-1">pay deployment fee</h2>
-                  <p className="text-[10px] text-muted-foreground">
-                    one-time fee of ${DEPLOYMENT_FEE_USD} ({isPriceLoading ? '...' : `${deploymentFeeEth} ETH`}) to deploy your locker contract
-                  </p>
-                </div>
-              </div>
-
-              {!hasPaidFee && (
-                <div className="pl-9">
-                  <Button
-                    onClick={handlePayFee}
-                    disabled={isPaymentPending || isPaymentConfirming || isPriceLoading || !ethPrice}
-                    size="sm"
-                  >
-                    {isPaymentPending || isPaymentConfirming 
-                      ? 'processing payment...' 
-                      : isPriceLoading 
-                      ? 'loading price...'
-                      : `pay $${DEPLOYMENT_FEE_USD} (${deploymentFeeEth} ETH)`}
-                  </Button>
-                </div>
-              )}
-
-              {hasPaidFee && (
-                <div className="pl-9 text-xs text-green-600 dark:text-green-400">
-                  ✓ payment confirmed
-                </div>
-              )}
-            </div>
-
-            {/* Step 2: Configuration */}
-            <div className={`border border-border p-6 ${!hasPaidFee ? 'opacity-50' : ''}`}>
-              <div className="flex items-start gap-3 mb-4">
-                <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                  hasPaidFee ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                }`}>
-                  2
+                  {isValidLpAddress && isValidFeeAddress && tokenMetadata ? <CheckCircle2 className="h-4 w-4" /> : '1'}
                 </div>
                 <div className="flex-1">
                   <h2 className="text-xs font-medium mb-1">configure locker</h2>
                   <p className="text-[10px] text-muted-foreground">
-                    set up your locker parameters
+                    set up your locker parameters and validate your pool
                   </p>
                 </div>
               </div>
@@ -207,7 +170,6 @@ export default function DeployLocker() {
                     value={lpTokenAddress}
                     onChange={(e) => setLpTokenAddress(e.target.value)}
                     className="text-xs font-mono"
-                    disabled={!hasPaidFee}
                   />
                   <p className="text-[10px] text-muted-foreground">
                     the lp token that will be locked in this contract
@@ -216,7 +178,7 @@ export default function DeployLocker() {
 
                 {isValidLpAddress && tokenMetadata && (
                   <div className="bg-muted/30 p-3 space-y-2">
-                    <p className="text-xs font-medium">token detected</p>
+                    <p className="text-xs font-medium text-green-600 dark:text-green-400">✓ token detected</p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">symbol</span>
                       <span className="text-xs font-medium">{tokenMetadata.symbol}</span>
@@ -245,27 +207,86 @@ export default function DeployLocker() {
                     value={feeReceiverAddress}
                     onChange={(e) => setFeeReceiverAddress(e.target.value)}
                     className="text-xs font-mono"
-                    disabled={!hasPaidFee}
                   />
                   <p className="text-[10px] text-muted-foreground">
                     address that will receive claimed lp fees (usually your wallet)
                   </p>
                 </div>
-
-                <Button
-                  onClick={handleDeploy}
-                  disabled={!hasPaidFee || isDeployPending || isDeployConfirming || !isValidLpAddress || !isValidFeeAddress}
-                  className="w-full"
-                  size="sm"
-                >
-                  {isDeployPending || isDeployConfirming ? 'deploying...' : 'deploy locker'}
-                </Button>
               </div>
             </div>
 
+            {/* Step 2: Payment */}
+            {isValidLpAddress && isValidFeeAddress && tokenMetadata && (
+              <div className={`border border-border p-6 ${hasPaidFee ? 'opacity-50' : ''}`}>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
+                    hasPaidFee ? 'bg-green-500 text-white' : 'bg-primary text-primary-foreground'
+                  }`}>
+                    {hasPaidFee ? <CheckCircle2 className="h-4 w-4" /> : '2'}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xs font-medium mb-1">pay deployment fee</h2>
+                    <p className="text-[10px] text-muted-foreground">
+                      one-time fee of ${DEPLOYMENT_FEE_USD} ({isPriceLoading ? '...' : `${deploymentFeeEth} ETH`}) to deploy your locker contract
+                    </p>
+                  </div>
+                </div>
+
+                {!hasPaidFee && (
+                  <div className="pl-9">
+                    <Button
+                      onClick={handlePayFee}
+                      disabled={isPaymentPending || isPaymentConfirming || isPriceLoading || !ethPrice}
+                      size="sm"
+                    >
+                      {isPaymentPending || isPaymentConfirming 
+                        ? 'processing payment...' 
+                        : isPriceLoading 
+                        ? 'loading price...'
+                        : `pay $${DEPLOYMENT_FEE_USD} (${deploymentFeeEth} ETH)`}
+                    </Button>
+                  </div>
+                )}
+
+                {hasPaidFee && (
+                  <div className="pl-9 text-xs text-green-600 dark:text-green-400">
+                    ✓ payment confirmed
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Deploy */}
+            {hasPaidFee && (
+              <div className="border border-border p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-primary text-primary-foreground">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xs font-medium mb-1">deploy contract</h2>
+                    <p className="text-[10px] text-muted-foreground">
+                      deploy your locker to the blockchain
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pl-9">
+                  <Button
+                    onClick={handleDeploy}
+                    disabled={isDeployPending || isDeployConfirming || !isValidLpAddress || !isValidFeeAddress}
+                    className="w-full"
+                    size="sm"
+                  >
+                    {isDeployPending || isDeployConfirming ? 'deploying...' : 'deploy locker'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="border border-blue-500/20 bg-blue-500/10 p-4">
               <p className="text-[10px] text-blue-600 dark:text-blue-400 leading-relaxed">
-                ℹ️ <strong>note:</strong> you must pay the deployment fee before configuring your locker.
+                ℹ️ <strong>note:</strong> verify your pool details first, then pay the deployment fee.
                 the fee helps maintain the platform and covers infrastructure costs.
               </p>
             </div>
