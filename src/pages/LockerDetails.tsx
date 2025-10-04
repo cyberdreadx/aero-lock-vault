@@ -144,7 +144,7 @@ export default function LockDetails() {
           aerolock
         </Link>
         <div className="flex items-center gap-3">
-          <Link to="/app">
+          <Link to="/lockers">
             <Button variant="ghost" size="sm">
               dashboard
             </Button>
