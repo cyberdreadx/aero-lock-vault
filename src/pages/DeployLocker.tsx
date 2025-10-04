@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
-import { useTokenMetadata } from '@/hooks/web3/useERC20';
+import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
+import { formatUnits } from 'viem';
 
 export default function DeployLocker() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function DeployLocker() {
   const validLpAddress = isValidLpAddress ? (lpTokenAddress as `0x${string}`) : undefined;
   
   const { data: tokenMetadata } = useTokenMetadata(validLpAddress);
+  const { data: tokenBalance } = useTokenBalance(validLpAddress);
 
   const handleDeploy = async () => {
     if (!address || !validLpAddress || !isValidFeeAddress) return;
@@ -118,6 +120,14 @@ export default function DeployLocker() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">name</span>
                   <span className="text-xs font-medium">{tokenMetadata.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">your balance</span>
+                  <span className="text-xs font-medium">
+                    {tokenBalance !== undefined 
+                      ? formatUnits(tokenBalance, tokenMetadata.decimals)
+                      : '...'} {tokenMetadata.symbol}
+                  </span>
                 </div>
               </div>
             )}
