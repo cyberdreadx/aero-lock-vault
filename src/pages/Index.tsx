@@ -1,8 +1,11 @@
 import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, Twitter, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useGlobalStats } from "@/hooks/useGlobalStats";
+import { LockedPoolsTable } from "@/components/home/LockedPoolsTable";
 
 const Index = () => {
+  const { data: stats, isLoading } = useGlobalStats();
   return (
     <div className="min-h-screen">
       {/* Navigation */}
@@ -59,16 +62,48 @@ const Index = () => {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mt-16 sm:mt-20 max-w-3xl mx-auto">
-            {[
-              { label: "locks", value: "1,234" },
-              { label: "tvl", value: "$12.5m" },
-              { label: "fees claimed", value: "$234k" },
-            ].map((stat, i) => (
-              <div key={i} className="border border-border p-4 sm:p-5">
-                <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">{stat.value}</div>
-                <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">{stat.label}</div>
+            <div className="border border-border p-4 sm:p-5">
+              <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">
+                {isLoading ? '...' : stats?.totalLockers || 0}
               </div>
-            ))}
+              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                lockers deployed
+              </div>
+            </div>
+            <div className="border border-border p-4 sm:p-5">
+              <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">
+                {isLoading ? '...' : stats?.totalLocks || 0}
+              </div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                active locks
+              </div>
+            </div>
+            <div className="border border-border p-4 sm:p-5">
+              <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">
+                {isLoading ? '...' : stats?.lockers.length || 0}
+              </div>
+              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                pools tracked
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Locked Pools Table */}
+      <section className="py-12 sm:py-16 border-t border-border">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-8">
+              locked pools
+            </h2>
+            {isLoading ? (
+              <div className="border border-border p-8 text-center">
+                <p className="text-xs text-muted-foreground">loading pools...</p>
+              </div>
+            ) : (
+              <LockedPoolsTable pools={stats?.lockers || []} />
+            )}
           </div>
         </div>
       </section>
