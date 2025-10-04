@@ -45,23 +45,32 @@ export default function DeployLocker() {
 
   // Handle successful deployment
   useEffect(() => {
-    if (isSuccess && hash && receipt?.contractAddress) {
-      saveLocker.mutate({
-        locker_address: receipt.contractAddress,
-        lp_token_address: lpTokenAddress,
-        fee_receiver_address: feeReceiverAddress,
-        deployment_tx_hash: hash,
-      }, {
-        onSuccess: () => {
-          toast({ description: 'locker deployed successfully!' });
-          navigate('/lockers');
-        },
-        onError: (error) => {
-          console.error('Failed to save locker:', error);
-          toast({ description: 'locker deployed but failed to save', variant: 'destructive' });
-          navigate('/lockers');
-        }
-      });
+    if (isSuccess && hash && receipt) {
+      console.log('Receipt:', receipt);
+      const deployedAddress = receipt.contractAddress;
+      console.log('Deployed contract address:', deployedAddress);
+      
+      if (deployedAddress) {
+        saveLocker.mutate({
+          locker_address: deployedAddress,
+          lp_token_address: lpTokenAddress,
+          fee_receiver_address: feeReceiverAddress,
+          deployment_tx_hash: hash,
+        }, {
+          onSuccess: () => {
+            toast({ description: 'locker deployed successfully!' });
+            navigate('/lockers');
+          },
+          onError: (error) => {
+            console.error('Failed to save locker:', error);
+            toast({ description: 'locker deployed but failed to save', variant: 'destructive' });
+            navigate('/lockers');
+          }
+        });
+      } else {
+        console.error('No contract address in receipt');
+        toast({ description: 'deployment succeeded but could not save address', variant: 'destructive' });
+      }
     }
   }, [isSuccess, hash, receipt, lpTokenAddress, feeReceiverAddress, saveLocker, navigate]);
 
