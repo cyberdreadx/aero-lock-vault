@@ -11,7 +11,7 @@ import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
 import { formatUnits, parseEther } from 'viem';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
-import { DEPLOYMENT_FEE_USD, TREASURY_ADDRESS } from '@/lib/web3/constants';
+import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS } from '@/lib/web3/constants';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function DeployLocker() {
@@ -225,9 +225,21 @@ export default function DeployLocker() {
                     {hasPaidFee ? <CheckCircle2 className="h-4 w-4" /> : '2'}
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-xs font-medium mb-1">pay deployment fee</h2>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-xs font-medium">pay deployment fee</h2>
+                      <span className="bg-green-500/20 text-green-600 dark:text-green-400 text-[10px] font-medium px-2 py-0.5 rounded">
+                        50% OFF
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-xs line-through text-muted-foreground">${DEPLOYMENT_FEE_ORIGINAL_USD}</span>
+                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">${DEPLOYMENT_FEE_USD}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        ({isPriceLoading ? '...' : `${deploymentFeeEth} ETH`})
+                      </span>
+                    </div>
                     <p className="text-[10px] text-muted-foreground">
-                      one-time fee of ${DEPLOYMENT_FEE_USD} ({isPriceLoading ? '...' : `${deploymentFeeEth} ETH`}) to deploy your locker contract
+                      🎉 new user special - save 50% on deployment
                     </p>
                   </div>
                 </div>
@@ -284,10 +296,9 @@ export default function DeployLocker() {
               </div>
             )}
 
-            <div className="border border-blue-500/20 bg-blue-500/10 p-4">
-              <p className="text-[10px] text-blue-600 dark:text-blue-400 leading-relaxed">
-                ℹ️ <strong>note:</strong> verify your pool details first, then pay the deployment fee.
-                the fee helps maintain the platform and covers infrastructure costs.
+            <div className="border border-green-500/20 bg-green-500/10 p-4">
+              <p className="text-[10px] text-green-600 dark:text-green-400 leading-relaxed">
+                🎉 <strong>limited time:</strong> new users save 50% on deployment! normally ${DEPLOYMENT_FEE_ORIGINAL_USD}, now just ${DEPLOYMENT_FEE_USD}. verify your pool details first, then secure your discounted deployment.
               </p>
             </div>
 
