@@ -17,7 +17,6 @@ export type Database = {
       deployed_lockers: {
         Row: {
           created_at: string | null
-          created_by: string | null
           deployed_at: string | null
           deployment_tx_hash: string | null
           fee_receiver_address: string
@@ -28,7 +27,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          created_by?: string | null
           deployed_at?: string | null
           deployment_tx_hash?: string | null
           fee_receiver_address: string
@@ -39,7 +37,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          created_by?: string | null
           deployed_at?: string | null
           deployment_tx_hash?: string | null
           fee_receiver_address?: string
