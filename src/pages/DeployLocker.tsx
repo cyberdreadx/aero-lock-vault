@@ -18,7 +18,7 @@ export default function DeployLocker() {
   const [feeReceiverAddress, setFeeReceiverAddress] = useState<string>('');
   const saveLocker = useSaveDeployedLocker();
   const { deployContract, data: hash, isPending } = useDeployContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
 
   const isValidLpAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
   const isValidFeeAddress = feeReceiverAddress.startsWith('0x') && feeReceiverAddress.length === 42;
@@ -45,11 +45,25 @@ export default function DeployLocker() {
 
   // Handle successful deployment
   useEffect(() => {
-    if (isSuccess && hash) {
-      toast({ description: 'locker deployed successfully!' });
-      navigate('/lockers');
+    if (isSuccess && hash && receipt?.contractAddress) {
+      saveLocker.mutate({
+        locker_address: receipt.contractAddress,
+        lp_token_address: lpTokenAddress,
+        fee_receiver_address: feeReceiverAddress,
+        deployment_tx_hash: hash,
+      }, {
+        onSuccess: () => {
+          toast({ description: 'locker deployed successfully!' });
+          navigate('/lockers');
+        },
+        onError: (error) => {
+          console.error('Failed to save locker:', error);
+          toast({ description: 'locker deployed but failed to save', variant: 'destructive' });
+          navigate('/lockers');
+        }
+      });
     }
-  }, [isSuccess, hash, navigate]);
+  }, [isSuccess, hash, receipt, lpTokenAddress, feeReceiverAddress, saveLocker, navigate]);
 
   if (!isConnected) {
     return (
