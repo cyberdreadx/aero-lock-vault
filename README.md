@@ -1,73 +1,102 @@
-# Welcome to your Lovable project
+# AeroLock - Secure LP Token Locker for Aerodrome Finance
 
-## Project info
+AeroLock is a decentralized application for locking Aerodrome Finance LP tokens with advanced timelock controls and fee management capabilities.
 
-**URL**: https://lovable.dev/projects/69f99495-aaa4-4b9a-b39b-7fb0f1b9c3a1
+## 🔒 Features
 
-## How can I edit this code?
+- **Deploy Custom Lockers**: Deploy your own LP token locker contract for any Aerodrome LP token
+- **Secure Timelocks**: Lock tokens with configurable unlock dates and 30-day emergency timelock
+- **Fee Management**: Automatically claim and distribute LP fees to designated receivers
+- **On-Chain Verification**: All deployments verified on-chain before saving to prevent fraud
+- **Real-Time Stats**: Track total locked value, active locks, and pool statistics
+- **Web3 Native**: Direct blockchain interaction via RainbowKit wallet integration
 
-There are several ways of editing your application.
+## 🚀 Technology Stack
 
-**Use Lovable**
+- **Frontend**: React + TypeScript + Vite
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **Web3**: wagmi + viem + RainbowKit
+- **Backend**: Lovable Cloud (Supabase)
+- **Blockchain**: Base Network (Aerodrome Finance)
+- **Smart Contracts**: Solidity LP Locker contracts
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/69f99495-aaa4-4b9a-b39b-7fb0f1b9c3a1) and start prompting.
+## 💰 Deployment Fee
 
-Changes made via Lovable will be committed automatically to this repo.
+- **New User Special**: $75 (50% off from $150)
+- Dynamic ETH pricing based on real-time USD conversion
+- One-time payment to treasury address
+- Verified on-chain before contract deployment
 
-**Use your preferred IDE**
+## 🛠️ Development
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js & npm installed ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- Web3 wallet (MetaMask, Coinbase Wallet, etc.)
+- Base network RPC access
 
-Follow these steps:
+### Local Setup
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Navigate to project directory
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
+# Install dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The following are auto-configured by Lovable Cloud:
+- `VITE_SUPABASE_URL` - Supabase API endpoint
+- `VITE_SUPABASE_PUBLISHABLE_KEY` - Public anon key (safe for client-side)
+- `VITE_SUPABASE_PROJECT_ID` - Project identifier
 
-**Use GitHub Codespaces**
+## 🔐 Security
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **RLS Policies**: Database protected with Row-Level Security
+- **On-Chain Verification**: Payment verification via Base blockchain
+- **Edge Function Validation**: Server-side transaction verification
+- **Address Validation**: Ethereum address format validation
 
-## What technologies are used for this project?
+## 📦 Smart Contracts
 
-This project is built with:
+LP Locker contracts include:
+- ERC20 token locking with timelock
+- Fee claiming and distribution
+- Emergency unlock with 30-day delay
+- Owner-controlled operations
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🌐 Deployment
 
-## How can I deploy this project?
+Deploy via Lovable:
+1. Open [Lovable Project](https://lovable.dev/projects/69f99495-aaa4-4b9a-b39b-7fb0f1b9c3a1)
+2. Click Share → Publish
+3. Configure custom domain (optional)
 
-Simply open [Lovable](https://lovable.dev/projects/69f99495-aaa4-4b9a-b39b-7fb0f1b9c3a1) and click on Share -> Publish.
+## 📝 License
 
-## Can I connect a custom domain to my Lovable project?
+Built with Lovable - [View Project](https://lovable.dev/projects/69f99495-aaa4-4b9a-b39b-7fb0f1b9c3a1)
 
-Yes, you can!
+## 🤝 Contributing
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+This project uses:
+- Vite for build tooling
+- TypeScript for type safety
+- React for UI components
+- shadcn-ui for component library
+- Tailwind CSS for styling
+- wagmi for Ethereum interactions
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 📚 Documentation
+
+- [Lovable Docs](https://docs.lovable.dev)
+- [Custom Domain Setup](https://docs.lovable.dev/features/custom-domain)
+- [RainbowKit Docs](https://www.rainbowkit.com)
+- [wagmi Docs](https://wagmi.sh)
