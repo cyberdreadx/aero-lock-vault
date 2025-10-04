@@ -11,5 +11,5 @@ export const BASE_SCAN_URL = 'https://basescan.org';
 
 export const TIMELOCK_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 
-export const DEPLOYMENT_FEE = '0.001'; // Fee in ETH to deploy a locker
+export const DEPLOYMENT_FEE_USD = 75; // Target fee in USD
 export const TREASURY_ADDRESS = '0xYourTreasuryAddressHere' as const; // Replace with your actual treasury address

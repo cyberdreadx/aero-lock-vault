@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
 import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
+import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
 import { formatUnits, parseEther } from 'viem';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
-import { DEPLOYMENT_FEE, TREASURY_ADDRESS } from '@/lib/web3/constants';
+import { DEPLOYMENT_FEE_USD, TREASURY_ADDRESS } from '@/lib/web3/constants';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function DeployLocker() {
@@ -40,6 +41,9 @@ export default function DeployLocker() {
   
   const { data: tokenMetadata } = useTokenMetadata(validLpAddress);
   const { data: tokenBalance } = useTokenBalance(validLpAddress);
+  const { data: ethPrice, isLoading: isPriceLoading } = useEthPrice();
+  
+  const deploymentFeeEth = ethPrice ? calculateEthAmount(DEPLOYMENT_FEE_USD, ethPrice) : '0';
 
   const handlePayFee = async () => {
     if (!address) return;
@@ -49,7 +53,7 @@ export default function DeployLocker() {
       
       sendPayment({
         to: TREASURY_ADDRESS as `0x${string}`,
-        value: parseEther(DEPLOYMENT_FEE),
+        value: parseEther(deploymentFeeEth),
       });
     } catch (error: any) {
       toast({ description: error.message || 'payment failed', variant: 'destructive' });
@@ -149,7 +153,7 @@ export default function DeployLocker() {
                 <div className="flex-1">
                   <h2 className="text-xs font-medium mb-1">pay deployment fee</h2>
                   <p className="text-[10px] text-muted-foreground">
-                    one-time fee of {DEPLOYMENT_FEE} ETH to deploy your locker contract
+                    one-time fee of ${DEPLOYMENT_FEE_USD} ({isPriceLoading ? '...' : `${deploymentFeeEth} ETH`}) to deploy your locker contract
                   </p>
                 </div>
               </div>
@@ -158,12 +162,14 @@ export default function DeployLocker() {
                 <div className="pl-9">
                   <Button
                     onClick={handlePayFee}
-                    disabled={isPaymentPending || isPaymentConfirming}
+                    disabled={isPaymentPending || isPaymentConfirming || isPriceLoading || !ethPrice}
                     size="sm"
                   >
                     {isPaymentPending || isPaymentConfirming 
                       ? 'processing payment...' 
-                      : `pay ${DEPLOYMENT_FEE} ETH`}
+                      : isPriceLoading 
+                      ? 'loading price...'
+                      : `pay $${DEPLOYMENT_FEE_USD} (${deploymentFeeEth} ETH)`}
                   </Button>
                 </div>
               )}
@@ -265,7 +271,7 @@ export default function DeployLocker() {
             </div>
 
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• deployment fee: {DEPLOYMENT_FEE} ETH (one-time payment)</p>
+              <p>• deployment fee: ${DEPLOYMENT_FEE_USD} (~{deploymentFeeEth} ETH, one-time payment)</p>
               <p>• each locker is a separate contract instance</p>
               <p>• you control the locker as the owner</p>
               <p>• after deployment, you can create locks in this locker</p>
