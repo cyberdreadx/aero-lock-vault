@@ -125,6 +125,59 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Trust Section */}
+      <section className="py-12 sm:py-16 border-t border-border">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-8 sm:mb-12">
+              why lock liquidity?
+            </h2>
+
+            <div className="space-y-8">
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-bold mb-4 tracking-tight">
+                  prove you're not rugging.
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  locking lp tokens is the #1 way to show your community you're serious. 
+                  when liquidity is locked, you can't suddenly pull it and disappear. 
+                  it's verifiable proof of commitment.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4">
+                <div className="border border-border p-5">
+                  <div className="text-3xl font-bold mb-2 tracking-tight">30d</div>
+                  <div className="text-xs text-muted-foreground">
+                    minimum warning before any withdrawal. community sees it coming.
+                  </div>
+                </div>
+                <div className="border border-border p-5">
+                  <div className="text-3xl font-bold mb-2 tracking-tight">100%</div>
+                  <div className="text-xs text-muted-foreground">
+                    transparent on-chain. anyone can verify locks on basescan.
+                  </div>
+                </div>
+                <div className="border border-border p-5">
+                  <div className="text-3xl font-bold mb-2 tracking-tight">0</div>
+                  <div className="text-xs text-muted-foreground">
+                    zero chance of instant rugpull. your community can trade safely.
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-l-2 border-border pl-6 py-2">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  locked liquidity is standard practice for legitimate defi projects. 
+                  no lock = red flag. investors check this first. 
+                  show them the lock, earn their trust.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works Section */}
       <section id="how" className="py-12 sm:py-16 border-t border-border">
         <div className="container mx-auto px-4 sm:px-6">
