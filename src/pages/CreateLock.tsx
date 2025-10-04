@@ -12,6 +12,7 @@ import { useERC20, useTokenBalance, useTokenAllowance, useTokenMetadata } from '
 import { CONTRACTS } from '@/lib/web3/constants';
 import { LPLockerABI } from '@/lib/web3/abis/LPLockerABI';
 import { formatTokenAmount } from '@/lib/web3/utils';
+import { Check, AlertCircle } from 'lucide-react';
 
 export default function CreateLock() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export default function CreateLock() {
 
   const parsedAmount = amount && tokenMetadata ? parseUnits(amount, tokenMetadata.decimals) : 0n;
   const needsApproval = allowance !== undefined && parsedAmount > allowance;
+  const hasBalance = balance !== undefined && balance > 0n;
 
   const handleApprove = async () => {
     if (!lpTokenAddress || !parsedAmount) return;
@@ -107,12 +109,43 @@ export default function CreateLock() {
 
           <div className="space-y-4 border border-border p-6">
             {lpTokenAddress && tokenMetadata && (
-              <div className="space-y-2 pb-4 border-b border-border">
-                <p className="text-xs text-muted-foreground">lp token</p>
-                <p className="text-xs font-mono">{lpTokenAddress}</p>
-                <p className="text-xs text-muted-foreground">
-                  {tokenMetadata.name} ({tokenMetadata.symbol})
-                </p>
+              <div className="space-y-3 pb-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">accepted lp token</p>
+                  {hasBalance && (
+                    <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
+                      <Check className="h-3 w-3" /> found in wallet
+                    </span>
+                  )}
+                  {!hasBalance && balance !== undefined && (
+                    <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                      <AlertCircle className="h-3 w-3" /> not in wallet
+                    </span>
+                  )}
+                </div>
+                
+                <div className="bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">symbol</span>
+                    <span className="text-xs font-medium">{tokenMetadata.symbol}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">name</span>
+                    <span className="text-xs font-medium">{tokenMetadata.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">address</span>
+                    <span className="text-[10px] font-mono">{lpTokenAddress.slice(0, 8)}...{lpTokenAddress.slice(-6)}</span>
+                  </div>
+                </div>
+
+                {!hasBalance && balance !== undefined && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 p-3">
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                      you don't have this lp token. acquire it from aerodrome first.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
