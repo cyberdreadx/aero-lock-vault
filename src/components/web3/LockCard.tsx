@@ -27,6 +27,8 @@ export function LockCard({
 }: LockCardProps) {
   const { address } = useAccount();
   const { data: lockData } = useGetLockInfo(lockerAddress, lockId);
+  const tokenAddr = (lockData ? (lockData[2] as `0x${string}`) : undefined);
+  const { data: tokenMetadata } = useTokenMetadata(tokenAddr);
 
   if (!lockData) {
     return (
@@ -48,7 +50,7 @@ export function LockCard({
     isWithdrawalTriggered,
   };
 
-  const { data: tokenMetadata } = useTokenMetadata(tokenContract as `0x${string}`);
+  
   const status = getLockStatus(lock);
   const unlockDate = calculateUnlockDate(lock.lockUpEndTime);
   const timeRemaining = getTimeRemaining(unlockDate);
