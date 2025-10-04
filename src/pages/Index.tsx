@@ -42,7 +42,7 @@ const Index = () => {
             </h1>
             
             <p className="text-sm sm:text-base text-muted-foreground mb-8 max-w-xl leading-relaxed">
-              minimalist lp locker for aerodrome pairs. 30-day timelock. fee claiming. no bs.
+              lock aerodrome lp tokens indefinitely. trigger 30-day withdrawal countdown when ready. claim fees anytime.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-3">
@@ -85,8 +85,8 @@ const Index = () => {
               {[
                 {
                   icon: Shield,
-                  title: "30-day timelock",
-                  description: "trigger withdrawal, wait 30 days, claim. cancel anytime before claiming.",
+                  title: "indefinite lock + 30-day exit",
+                  description: "tokens locked until you trigger withdrawal. then mandatory 30-day countdown begins. cancel anytime.",
                 },
                 {
                   icon: DollarSign,
@@ -143,17 +143,17 @@ const Index = () => {
                 {
                   num: "02",
                   title: "create lock",
-                  description: "specify lp token address and amount"
+                  description: "tokens are locked indefinitely until you trigger withdrawal"
                 },
                 {
                   num: "03",
                   title: "manage",
-                  description: "claim fees, top-up, trigger withdrawal"
+                  description: "claim fees anytime. when ready, trigger 30-day withdrawal countdown"
                 },
                 {
                   num: "04",
                   title: "withdraw",
-                  description: "after 30-day timelock, claim your tokens"
+                  description: "after countdown expires, withdraw tokens. cancel trigger anytime before expiry"
                 },
               ].map((item, i) => (
                 <div key={i} className="flex gap-6 sm:gap-8 group">

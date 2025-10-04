@@ -189,31 +189,38 @@ export default function LockDetails() {
                 <h2 className="text-xs font-medium">actions</h2>
                 
                 {status === 'active' && (
-                  <Button
-                    onClick={handleTriggerWithdrawal}
-                    disabled={isProcessing}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  >
-                    trigger withdrawal
-                  </Button>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">start 30-day withdrawal countdown</p>
+                    <Button
+                      onClick={handleTriggerWithdrawal}
+                      disabled={isProcessing}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      trigger withdrawal
+                    </Button>
+                  </div>
                 )}
 
                 {status === 'triggered' && (
-                  <Button
-                    onClick={handleCancelTrigger}
-                    disabled={isProcessing}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                  >
-                    cancel trigger
-                  </Button>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">countdown active. cancel to reset timer.</p>
+                    <Button
+                      onClick={handleCancelTrigger}
+                      disabled={isProcessing}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      cancel withdrawal countdown
+                    </Button>
+                  </div>
                 )}
 
                 {status === 'unlocked' && (
                   <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">30-day countdown complete. ready to withdraw.</p>
                     <Label htmlFor="withdraw" className="text-xs">withdraw amount</Label>
                     <Input
                       id="withdraw"
@@ -229,7 +236,7 @@ export default function LockDetails() {
                       size="sm"
                       className="w-full"
                     >
-                      withdraw
+                      withdraw tokens
                     </Button>
                   </div>
                 )}

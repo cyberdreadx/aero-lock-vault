@@ -102,7 +102,7 @@ export default function CreateLock() {
         <div className="space-y-6">
           <div>
             <h1 className="text-sm tracking-tight mb-1">create lock</h1>
-            <p className="text-xs text-muted-foreground">lock aerodrome lp tokens for 30 days</p>
+            <p className="text-xs text-muted-foreground">tokens locked indefinitely. 30-day exit countdown when you trigger withdrawal.</p>
           </div>
 
           <div className="space-y-4 border border-border p-6">
@@ -155,9 +155,9 @@ export default function CreateLock() {
           </div>
 
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>• 30-day timelock after withdrawal trigger</p>
-            <p>• claim lp fees anytime</p>
-            <p>• top up locks anytime</p>
+            <p>• tokens locked indefinitely until you trigger withdrawal</p>
+            <p>• once triggered: mandatory 30-day countdown (cancellable)</p>
+            <p>• claim fees & top up anytime while locked</p>
           </div>
         </div>
       </div>
