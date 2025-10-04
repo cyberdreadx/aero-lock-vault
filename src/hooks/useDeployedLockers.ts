@@ -43,21 +43,25 @@ export function useSaveDeployedLocker() {
       locker_address: string;
       lp_token_address: string;
       fee_receiver_address: string;
-      deployment_tx_hash?: string;
+      deployment_tx_hash: string;
+      payment_tx_hash: string;
     }) => {
       if (!address) throw new Error('Wallet not connected');
 
-      const { data, error } = await supabase
-        .from('deployed_lockers')
-        .insert({
-          wallet_address: address.toLowerCase(),
-          ...locker,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('verify-deployment', {
+        body: {
+          paymentTxHash: locker.payment_tx_hash,
+          lockerAddress: locker.locker_address,
+          lpTokenAddress: locker.lp_token_address,
+          feeReceiverAddress: locker.fee_receiver_address,
+          deploymentTxHash: locker.deployment_tx_hash,
+          walletAddress: address.toLowerCase(),
+        }
+      });
 
       if (error) throw error;
-      return data;
+      if (data?.error) throw new Error(data.error);
+      return data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deployed-lockers', address] });

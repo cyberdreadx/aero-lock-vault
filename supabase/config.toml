@@ -1,1 +1,4 @@
 project_id = "hwbdlvmesabvmxommlcl"
+
+[functions.verify-deployment]
+verify_jwt = false

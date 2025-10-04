@@ -86,25 +86,28 @@ export default function DeployLocker() {
 
   // Handle successful deployment
   useEffect(() => {
-    if (isDeploySuccess && deployHash && receipt?.contractAddress) {
+    if (isDeploySuccess && deployHash && receipt?.contractAddress && paymentHash) {
       saveLocker.mutate({
         locker_address: receipt.contractAddress,
         lp_token_address: lpTokenAddress,
         fee_receiver_address: feeReceiverAddress,
         deployment_tx_hash: deployHash,
+        payment_tx_hash: paymentHash,
       }, {
         onSuccess: () => {
-          toast({ description: 'locker deployed successfully!' });
+          toast({ description: 'locker deployed and verified successfully!' });
           navigate('/lockers');
         },
         onError: (error) => {
-          console.error('Failed to save locker:', error);
-          toast({ description: 'locker deployed but failed to save', variant: 'destructive' });
-          navigate('/lockers');
+          console.error('Failed to verify and save locker:', error);
+          toast({ 
+            description: error.message || 'payment verification failed - deployment not saved', 
+            variant: 'destructive' 
+          });
         }
       });
     }
-  }, [isDeploySuccess, deployHash, receipt, lpTokenAddress, feeReceiverAddress, saveLocker, navigate]);
+  }, [isDeploySuccess, deployHash, receipt, lpTokenAddress, feeReceiverAddress, paymentHash, saveLocker, navigate]);
 
   if (!isConnected) {
     return (
