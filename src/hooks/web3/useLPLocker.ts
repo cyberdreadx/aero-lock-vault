@@ -1,14 +1,18 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { CONTRACTS } from '@/lib/web3/constants';
 import { LPLockerABI } from '@/lib/web3/abis/LPLockerABI';
 import type { LockInfo } from '@/types/web3';
 
-export function useLPLocker() {
+/**
+ * Hook to interact with a specific LPLocker contract
+ * @param lockerAddress - The address of the specific locker contract to interact with
+ */
+export function useLPLocker(lockerAddress?: `0x${string}`) {
   const { writeContractAsync } = useWriteContract();
 
   const lockLiquidity = async (amount: bigint) => {
+    if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
-      address: CONTRACTS.LP_LOCKER,
+      address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'lockLiquidity',
       args: [amount],
@@ -16,8 +20,9 @@ export function useLPLocker() {
   };
 
   const triggerWithdrawal = async (lockId: string) => {
+    if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
-      address: CONTRACTS.LP_LOCKER,
+      address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'triggerWithdrawal',
       args: [lockId as `0x${string}`],
@@ -25,8 +30,9 @@ export function useLPLocker() {
   };
 
   const cancelWithdrawalTrigger = async (lockId: string) => {
+    if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
-      address: CONTRACTS.LP_LOCKER,
+      address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'cancelWithdrawalTrigger',
       args: [lockId as `0x${string}`],
@@ -34,8 +40,9 @@ export function useLPLocker() {
   };
 
   const withdrawLP = async (lockId: string, amount: bigint) => {
+    if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
-      address: CONTRACTS.LP_LOCKER,
+      address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'withdrawLP',
       args: [lockId as `0x${string}`, amount],
@@ -43,8 +50,9 @@ export function useLPLocker() {
   };
 
   const claimLPFees = async (lockId: string) => {
+    if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
-      address: CONTRACTS.LP_LOCKER,
+      address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'claimLPFees',
       args: [lockId as `0x${string}`],
@@ -52,8 +60,9 @@ export function useLPLocker() {
   };
 
   const topUpLock = async (lockId: string, amount: bigint) => {
+    if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
-      address: CONTRACTS.LP_LOCKER,
+      address: lockerAddress,
       abi: LPLockerABI,
       functionName: 'topUpLock',
       args: [lockId as `0x${string}`, amount],
@@ -70,25 +79,34 @@ export function useLPLocker() {
   };
 }
 
-export function useGetLockInfo(lockId?: string) {
+/**
+ * Get information about a specific lock
+ * @param lockerAddress - Address of the locker contract
+ * @param lockId - ID of the lock to query
+ */
+export function useGetLockInfo(lockerAddress?: `0x${string}`, lockId?: string) {
   return useReadContract({
-    address: CONTRACTS.LP_LOCKER,
+    address: lockerAddress,
     abi: LPLockerABI,
     functionName: 'getLockInfo',
     args: lockId ? [lockId as `0x${string}`] : undefined,
     query: {
-      enabled: !!lockId,
+      enabled: !!lockerAddress && !!lockId,
     },
   }) as { data: [string, string, string, bigint, bigint, boolean, boolean] | undefined; isLoading: boolean; error: Error | null; refetch: () => void };
 }
 
-export function useGetAllLockIds() {
+/**
+ * Get all lock IDs from a specific locker contract
+ * @param lockerAddress - Address of the locker contract
+ */
+export function useGetAllLockIds(lockerAddress?: `0x${string}`) {
   return useReadContract({
-    address: CONTRACTS.LP_LOCKER,
+    address: lockerAddress,
     abi: LPLockerABI,
     functionName: 'getAllLockIds',
     query: {
-      enabled: true,
+      enabled: !!lockerAddress,
     },
   }) as { data: string[] | undefined; isLoading: boolean; error: Error | null; refetch: () => void };
 }

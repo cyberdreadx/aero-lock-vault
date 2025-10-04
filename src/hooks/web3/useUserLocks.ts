@@ -1,15 +1,19 @@
 import { useGetAllLockIds, useGetLockInfo } from './useLPLocker';
 import type { LockWithId } from '@/types/web3';
 
-export function useUserLocks() {
-  const { data: lockIds, isLoading: isLoadingIds, refetch } = useGetAllLockIds();
+/**
+ * Get all locks from a specific locker contract
+ * @param lockerAddress - Address of the locker contract to query
+ */
+export function useLockerLocks(lockerAddress?: `0x${string}`) {
+  const { data: lockIds, isLoading: isLoadingIds, refetch } = useGetAllLockIds(lockerAddress);
 
   const locks: LockWithId[] = [];
   let isLoadingLocks = false;
 
-  if (lockIds && lockIds.length > 0) {
+  if (lockIds && lockIds.length > 0 && lockerAddress) {
     for (const lockId of lockIds) {
-      const { data: lockData, isLoading } = useGetLockInfo(lockId);
+      const { data: lockData, isLoading } = useGetLockInfo(lockerAddress, lockId);
       if (isLoading) isLoadingLocks = true;
       if (lockData) {
         const [owner, feeReceiver, tokenContract, amount, lockUpEndTime, isLiquidityLocked, isWithdrawalTriggered] = lockData;

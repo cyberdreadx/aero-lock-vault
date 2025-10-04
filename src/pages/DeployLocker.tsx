@@ -1,73 +1,58 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAccount, useReadContract } from 'wagmi';
-import { parseUnits } from 'viem';
+import { useAccount } from 'wagmi';
 import { WalletButton } from '@/components/web3/WalletButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { useLPLocker, useWaitForTransaction } from '@/hooks/web3/useLPLocker';
-import { useERC20, useTokenBalance, useTokenAllowance, useTokenMetadata } from '@/hooks/web3/useERC20';
-import { CONTRACTS } from '@/lib/web3/constants';
-import { LPLockerABI } from '@/lib/web3/abis/LPLockerABI';
-import { formatTokenAmount } from '@/lib/web3/utils';
-import { Check, AlertCircle } from 'lucide-react';
+import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
+import { useTokenMetadata } from '@/hooks/web3/useERC20';
 
-export default function CreateLock() {
+export default function DeployLocker() {
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
   const [lpTokenAddress, setLpTokenAddress] = useState<string>('');
-  const [amount, setAmount] = useState('');
-  const [isApproving, setIsApproving] = useState(false);
-  const [isLocking, setIsLocking] = useState(false);
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [feeReceiverAddress, setFeeReceiverAddress] = useState<string>('');
+  const [isDeploying, setIsDeploying] = useState(false);
+  const saveLocker = useSaveDeployedLocker();
 
-  const isValidAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
-
-  const validLpAddress = isValidAddress ? (lpTokenAddress as `0x${string}`) : undefined;
+  const isValidLpAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
+  const isValidFeeAddress = feeReceiverAddress.startsWith('0x') && feeReceiverAddress.length === 42;
+  const validLpAddress = isValidLpAddress ? (lpTokenAddress as `0x${string}`) : undefined;
   
   const { data: tokenMetadata } = useTokenMetadata(validLpAddress);
-  const { data: balance, refetch: refetchBalance } = useTokenBalance(validLpAddress);
-  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(validLpAddress, CONTRACTS.LP_LOCKER);
-  const { approve } = useERC20(validLpAddress);
-  const { lockLiquidity } = useLPLocker();
-  const { isSuccess: isTxSuccess } = useWaitForTransaction(txHash);
 
-  const parsedAmount = amount && tokenMetadata ? parseUnits(amount, tokenMetadata.decimals) : 0n;
-  const needsApproval = allowance !== undefined && parsedAmount > allowance;
-  const hasBalance = balance !== undefined && balance > 0n;
+  const handleDeploy = async () => {
+    if (!address || !validLpAddress || !isValidFeeAddress) return;
 
-  const handleApprove = async () => {
-    if (!validLpAddress || !parsedAmount) return;
-    
-    setIsApproving(true);
+    setIsDeploying(true);
     try {
-      const hash = await approve(CONTRACTS.LP_LOCKER, parsedAmount);
-      toast({ description: 'approval submitted' });
-      await refetchAllowance();
-      toast({ description: 'approved' });
-    } catch (error: any) {
-      toast({ description: error.message || 'approval failed', variant: 'destructive' });
-    } finally {
-      setIsApproving(false);
-    }
-  };
+      // TODO: Replace this with actual factory contract deployment
+      // Example: const deployedAddress = await deployLockerContract(validLpAddress, feeReceiverAddress);
+      
+      // Mock deployment for now - YOU NEED TO IMPLEMENT ACTUAL FACTORY DEPLOYMENT
+      const mockDeployedAddress = '0x' + Math.random().toString(16).slice(2, 42);
+      
+      toast({ description: 'deploying locker contract...' });
+      
+      // Simulate deployment delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Save to database
+      await saveLocker.mutateAsync({
+        locker_address: mockDeployedAddress,
+        lp_token_address: lpTokenAddress,
+        fee_receiver_address: feeReceiverAddress,
+        deployment_tx_hash: '0x' + Math.random().toString(16).slice(2),
+      });
 
-  const handleLock = async () => {
-    if (!parsedAmount) return;
-
-    setIsLocking(true);
-    try {
-      const hash = await lockLiquidity(parsedAmount);
-      setTxHash(hash);
-      toast({ description: 'lock created' });
-      await refetchBalance();
-      navigate('/app');
+      toast({ description: 'locker deployed successfully!' });
+      navigate('/lockers');
     } catch (error: any) {
-      toast({ description: error.message || 'lock failed', variant: 'destructive' });
+      toast({ description: error.message || 'deployment failed', variant: 'destructive' });
     } finally {
-      setIsLocking(false);
+      setIsDeploying(false);
     }
   };
 
@@ -75,7 +60,7 @@ export default function CreateLock() {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center space-y-4">
-          <h1 className="text-sm tracking-tight">connect wallet to create lock</h1>
+          <h1 className="text-sm tracking-tight">connect wallet to deploy locker</h1>
           <WalletButton />
         </div>
       </div>
@@ -101,8 +86,10 @@ export default function CreateLock() {
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="space-y-6">
           <div>
-            <h1 className="text-sm tracking-tight mb-1">create lock</h1>
-            <p className="text-xs text-muted-foreground">lock any aerodrome lp pair. tokens locked indefinitely until you trigger withdrawal.</p>
+            <h1 className="text-sm tracking-tight mb-1">deploy lp locker</h1>
+            <p className="text-xs text-muted-foreground">
+              deploy your own locker contract for any aerodrome lp token
+            </p>
           </div>
 
           <div className="space-y-4 border border-border p-6">
@@ -117,101 +104,60 @@ export default function CreateLock() {
                 className="text-xs font-mono"
               />
               <p className="text-[10px] text-muted-foreground">
-                enter the address of any aerodrome lp token pair
+                the lp token that will be locked in this contract
               </p>
             </div>
 
-            {isValidAddress && tokenMetadata && (
-              <div className="space-y-3 pt-2 border-t border-border">
+            {isValidLpAddress && tokenMetadata && (
+              <div className="bg-muted/30 p-3 space-y-2">
+                <p className="text-xs font-medium">token detected</p>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium">token detected</p>
-                  {hasBalance && (
-                    <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
-                      <Check className="h-3 w-3" /> in wallet
-                    </span>
-                  )}
-                  {!hasBalance && balance !== undefined && (
-                    <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
-                      <AlertCircle className="h-3 w-3" /> not in wallet
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground">symbol</span>
+                  <span className="text-xs font-medium">{tokenMetadata.symbol}</span>
                 </div>
-                
-                <div className="bg-muted/30 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">symbol</span>
-                    <span className="text-xs font-medium">{tokenMetadata.symbol}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">name</span>
-                    <span className="text-xs font-medium">{tokenMetadata.name}</span>
-                  </div>
-                  {balance !== undefined && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">your balance</span>
-                      <span className="text-xs font-medium">{formatTokenAmount(balance, tokenMetadata.decimals)}</span>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">name</span>
+                  <span className="text-xs font-medium">{tokenMetadata.name}</span>
                 </div>
-
-                {!hasBalance && balance !== undefined && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-3">
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                      you don't have this lp token. acquire it from aerodrome first.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {isValidAddress && !tokenMetadata && validLpAddress && (
-              <div className="bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground">loading token info...</p>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="amount" className="text-xs">amount</Label>
+              <Label htmlFor="feeReceiver" className="text-xs">fee receiver address</Label>
               <Input
-                id="amount"
-                type="number"
-                placeholder="0.0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="text-xs"
+                id="feeReceiver"
+                type="text"
+                placeholder="0x..."
+                value={feeReceiverAddress}
+                onChange={(e) => setFeeReceiverAddress(e.target.value)}
+                className="text-xs font-mono"
               />
-              {balance !== undefined && tokenMetadata && (
-                <p className="text-xs text-muted-foreground">
-                  balance: {formatTokenAmount(balance, tokenMetadata.decimals)}
-                </p>
-              )}
+              <p className="text-[10px] text-muted-foreground">
+                address that will receive claimed lp fees (usually your wallet)
+              </p>
             </div>
 
-            {needsApproval ? (
-              <Button
-                onClick={handleApprove}
-                disabled={isApproving || !validLpAddress || !parsedAmount || !hasBalance}
-                className="w-full"
-                size="sm"
-              >
-                {isApproving ? 'approving...' : 'approve'}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleLock}
-                disabled={isLocking || !validLpAddress || !parsedAmount || !hasBalance}
-                className="w-full"
-                size="sm"
-              >
-                {isLocking ? 'locking...' : 'lock liquidity'}
-              </Button>
-            )}
+            <Button
+              onClick={handleDeploy}
+              disabled={isDeploying || !isValidLpAddress || !isValidFeeAddress}
+              className="w-full"
+              size="sm"
+            >
+              {isDeploying ? 'deploying...' : 'deploy locker'}
+            </Button>
+          </div>
+
+          <div className="border border-amber-500/20 bg-amber-500/10 p-4">
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
+              ⚠️ <strong>developer note:</strong> this currently uses mock deployment. 
+              you need to implement actual factory contract deployment in handleDeploy().
+            </p>
           </div>
 
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>• tokens locked indefinitely until you trigger withdrawal</p>
-            <p>• once triggered: mandatory 30-day countdown (cancellable)</p>
-            <p>• claim fees & top up anytime while locked</p>
+            <p>• each locker is a separate contract instance</p>
+            <p>• you control the locker as the owner</p>
+            <p>• after deployment, you can create locks in this locker</p>
           </div>
         </div>
       </div>

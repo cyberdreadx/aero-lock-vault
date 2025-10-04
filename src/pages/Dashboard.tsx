@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { WalletButton } from '@/components/web3/WalletButton';
-import { useUserLocks } from '@/hooks/web3/useUserLocks';
+import { useDeployedLockers } from '@/hooks/useDeployedLockers';
 import { Button } from '@/components/ui/button';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
-import { formatTokenAmount, getLockStatus, calculateUnlockDate, getTimeRemaining } from '@/lib/web3/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
-  const { locks, isLoading } = useUserLocks();
+  const { data: lockers, isLoading } = useDeployedLockers();
 
   if (!isConnected) {
     return (
@@ -30,7 +30,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <Link to="/deploy">
             <Button variant="outline" size="sm">
-              create lock
+              deploy locker
             </Button>
           </Link>
           <WalletButton />
@@ -40,73 +40,64 @@ export default function Dashboard() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="space-y-8">
           <div>
-            <h1 className="text-sm tracking-tight mb-1">your locks</h1>
+            <h1 className="text-sm tracking-tight mb-1">your deployed lockers</h1>
             <p className="text-xs text-muted-foreground">{address && <AddressDisplay address={address} />}</p>
           </div>
 
           {isLoading && (
-            <div className="text-xs text-muted-foreground">loading locks...</div>
+            <div className="text-xs text-muted-foreground">loading lockers...</div>
           )}
 
-          {!isLoading && locks.length === 0 && (
+          {!isLoading && (!lockers || lockers.length === 0) && (
             <div className="border border-border p-8 text-center space-y-4">
-              <p className="text-xs text-muted-foreground">no locks found</p>
+              <p className="text-xs text-muted-foreground">no lockers deployed yet</p>
               <Link to="/deploy">
                 <Button variant="outline" size="sm">
-                  create first lock
+                  deploy first locker
                 </Button>
               </Link>
             </div>
           )}
 
-          {!isLoading && locks.length > 0 && (
-            <div className="border border-border">
-              <table className="w-full text-xs">
-                <thead className="border-b border-border">
-                  <tr className="text-left">
-                    <th className="p-3 font-medium">id</th>
-                    <th className="p-3 font-medium">lp token</th>
-                    <th className="p-3 font-medium">amount</th>
-                    <th className="p-3 font-medium">status</th>
-                    <th className="p-3 font-medium">unlock</th>
-                    <th className="p-3 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {locks.map((lock) => {
-                    const status = getLockStatus(lock);
-                    const unlockDate = calculateUnlockDate(lock.lockUpEndTime);
-                    const timeRemaining = getTimeRemaining(unlockDate);
-
-                    return (
-                      <tr key={lock.lockId} className="border-b border-border last:border-0">
-                        <td className="p-3">{lock.lockId.slice(0, 10)}...</td>
-                        <td className="p-3">
-                          <AddressDisplay address={lock.tokenContract} showLink={false} />
-                        </td>
-                        <td className="p-3">{formatTokenAmount(lock.amount)}</td>
-                        <td className="p-3">
-                          <span className={
-                            status === 'active' ? 'text-foreground' :
-                            status === 'triggered' ? 'text-muted-foreground' :
-                            status === 'unlocked' ? 'text-foreground' : 'text-muted-foreground'
-                          }>
-                            {status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-muted-foreground">{timeRemaining}</td>
-                        <td className="p-3">
-                          <Link to={`/locker/${lock.lockId}`}>
-                            <Button variant="ghost" size="sm">
-                              manage
-                            </Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {!isLoading && lockers && lockers.length > 0 && (
+            <div className="grid gap-4">
+              {lockers.map((locker) => (
+                <Link
+                  key={locker.id}
+                  to={`/locker/${locker.locker_address}`}
+                  className="border border-border p-5 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium">locker contract</p>
+                        <AddressDisplay address={locker.locker_address as `0x${string}`} />
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-xs">
+                        manage →
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">lp token</p>
+                        <AddressDisplay 
+                          address={locker.lp_token_address as `0x${string}`} 
+                          showLink={false}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">deployed</p>
+                        <p className="text-xs">
+                          {locker.deployed_at 
+                            ? formatDistanceToNow(new Date(locker.deployed_at), { addSuffix: true })
+                            : 'unknown'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
         </div>
