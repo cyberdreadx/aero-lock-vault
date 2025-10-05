@@ -278,22 +278,26 @@ const Docs = () => {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-3">verifying your contract on basescan</h3>
+                <h3 className="text-lg font-semibold mb-3">contract verification</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  after deploying your locker, you can verify the contract on basescan for full transparency:
+                  your locker is deployed from our verified factory contract, which means:
                 </p>
-                <ol className="space-y-2 list-decimal list-inside text-sm text-muted-foreground mb-3">
-                  <li>copy your locker contract address from the dashboard</li>
-                  <li>go to <a href="https://basescan.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">basescan.org</a> and search for your contract</li>
-                  <li>click on the "Contract" tab, then "Verify and Publish"</li>
-                  <li>select "Solidity (Single file)" as compiler type</li>
-                  <li>match the compiler version used by the factory contract</li>
-                  <li>paste the locker contract source code</li>
-                  <li>enable optimization if it was used during deployment</li>
-                  <li>submit for verification</li>
-                </ol>
+                <ul className="space-y-2 text-sm text-muted-foreground mb-3">
+                  <li className="flex items-start gap-2">
+                    <div className="w-1 h-1 rounded-full bg-primary mt-2" />
+                    <span>the factory contract is verified on basescan</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-1 h-1 rounded-full bg-primary mt-2" />
+                    <span>anyone can see your locker was deployed from the verified factory</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-1 h-1 rounded-full bg-primary mt-2" />
+                    <span>the bytecode is identical to other verified lockers</span>
+                  </li>
+                </ul>
                 <p className="text-sm text-muted-foreground">
-                  once verified, anyone can view and audit your locker's code directly on basescan, proving it's the legitimate aerolock contract.
+                  to verify your specific locker instance on basescan, contact us on <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">X</a> or <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">github</a> and we'll help you through the process with the exact source code and compiler settings.
                 </p>
               </div>
             </div>
