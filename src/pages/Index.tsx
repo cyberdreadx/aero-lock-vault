@@ -19,6 +19,7 @@ const Index = () => {
             <div className="flex items-center gap-4 sm:gap-6 text-xs">
               <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">features</a>
               <a href="#how" className="hidden sm:inline text-muted-foreground hover:text-foreground transition-colors">how it works</a>
+              <Link to="/docs" className="text-muted-foreground hover:text-foreground transition-colors">docs</Link>
               <Link to="/lockers">
                 <Button size="sm" className="h-7 text-xs px-3">
                   launch app

@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import DeployLocker from "./pages/DeployLocker";
 import LockerDetails from "./pages/LockerDetails";
 import LockedShowcase from "./pages/LockedShowcase";
+import Docs from "./pages/Docs";
 import NotFound from "./pages/NotFound";
 import { AuthGuard } from "./components/auth/AuthGuard";
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/deploy" element={<AuthGuard><DeployLocker /></AuthGuard>} />
               <Route path="/locker/:lockerAddress" element={<AuthGuard><LockerDetails /></AuthGuard>} />
               <Route path="/locked/:lockerAddress" element={<LockedShowcase />} />
+              <Route path="/docs" element={<Docs />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
