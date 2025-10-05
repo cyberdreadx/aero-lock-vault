@@ -13,6 +13,7 @@ import { formatUnits, parseEther } from 'viem';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
 import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS } from '@/lib/web3/constants';
 import { CheckCircle2 } from 'lucide-react';
+import aerolockLogo from '@/assets/aerolock-logo.png';
 
 export default function DeployLocker() {
   const navigate = useNavigate();
@@ -121,7 +122,8 @@ export default function DeployLocker() {
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-6">
+          <img src={aerolockLogo} alt="aerolock" className="h-16 mx-auto" />
           <h1 className="text-sm tracking-tight">connect wallet to deploy locker</h1>
           <WalletButton />
         </div>

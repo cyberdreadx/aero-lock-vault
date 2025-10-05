@@ -5,6 +5,7 @@ import { useDeployedLockers } from '@/hooks/useDeployedLockers';
 import { Button } from '@/components/ui/button';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
 import { formatDistanceToNow } from 'date-fns';
+import aerolockLogo from '@/assets/aerolock-logo.png';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -13,7 +14,8 @@ export default function Dashboard() {
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-6">
+          <img src={aerolockLogo} alt="aerolock" className="h-16 mx-auto" />
           <h1 className="text-sm tracking-tight">connect wallet to view locks</h1>
           <WalletButton />
         </div>

@@ -23,6 +23,7 @@ import { useLockerLocks } from '@/hooks/web3/useUserLocks';
 import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
 import { formatTokenAmount } from '@/lib/web3/utils';
 import { LockCard } from '@/components/web3/LockCard';
+import aerolockLogo from '@/assets/aerolock-logo.png';
 
 export default function LockerDetails() {
   const { lockerAddress } = useParams();
@@ -55,7 +56,8 @@ export default function LockerDetails() {
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-6">
+          <img src={aerolockLogo} alt="aerolock" className="h-16 mx-auto" />
           <h1 className="text-sm tracking-tight">connect wallet</h1>
           <WalletButton />
         </div>
