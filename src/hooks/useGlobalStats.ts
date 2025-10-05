@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useReadContract } from 'wagmi';
 import { useEffect, useState } from 'react';
 
 export interface GlobalStats {
@@ -60,7 +59,7 @@ export function useGlobalStats() {
                     params: [
                       {
                         to: locker.locker_address,
-                        data: '0x38af3eed', // getAllLockIds() function selector
+                        data: '0xbc4ab7fb', // getAllLockIds() selector
                       },
                       'latest',
                     ],
@@ -69,11 +68,11 @@ export function useGlobalStats() {
               );
               const json = await response.json();
               if (json.result && json.result !== '0x') {
-                // Decode the array length from the result
+                // Decode dynamic array: first 32 bytes = offset, next 32 bytes = length
                 const data = json.result.slice(2);
-                if (data.length >= 64) {
-                  const length = parseInt(data.slice(0, 64), 16);
-                  return length;
+                if (data.length >= 128) {
+                  const length = parseInt(data.slice(64, 128), 16);
+                  return Number.isFinite(length) ? length : 0;
                 }
               }
               return 0;
