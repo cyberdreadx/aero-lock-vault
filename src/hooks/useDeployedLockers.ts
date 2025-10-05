@@ -24,7 +24,7 @@ export function useDeployedLockers() {
       const { data, error } = await supabase
         .from('deployed_lockers')
         .select('*')
-        .eq('wallet_address', address.toLowerCase())
+        .or(`wallet_address.eq.${address.toLowerCase()},current_owner.eq.${address.toLowerCase()}`)
         .order('deployed_at', { ascending: false });
 
       if (error) throw error;
