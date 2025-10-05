@@ -214,7 +214,10 @@ export default function LockerDetails() {
     setIsPending(true);
     try {
       await locker.transferOwnership(newOwner as `0x${string}`);
-      toast({ description: 'ownership transferred!' });
+      toast({ 
+        description: 'ownership transfer initiated! the new owner must call "accept ownership" to complete the transfer.',
+        duration: 6000
+      });
       setNewOwner('');
     } catch (error: any) {
       toast({ description: error.message || 'failed to transfer ownership', variant: 'destructive' });
@@ -444,8 +447,21 @@ export default function LockerDetails() {
             <Card className="p-6">
               <h2 className="text-xs font-medium mb-4">owner functions</h2>
               <div className="space-y-4">
+                {pendingOwner && pendingOwner !== '0x0000000000000000000000000000000000000000' && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded">
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mb-2">
+                      ⏳ pending ownership transfer
+                    </p>
+                    <div className="text-[10px]">
+                      <span className="text-muted-foreground">waiting for </span>
+                      <AddressDisplay address={pendingOwner} showLink={false} />
+                      <span className="text-muted-foreground"> to accept</span>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs">transfer ownership</Label>
+                  <p className="text-[10px] text-muted-foreground mb-2">new owner must accept to complete transfer</p>
                   <div className="flex gap-2">
                     <Input
                       type="text"
