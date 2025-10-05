@@ -164,14 +164,49 @@ export default function LockedShowcase() {
             </div>
           </Card>
 
+          {/* Verified Contract Section */}
+          <Card className="p-6 bg-card/50 backdrop-blur border-green-500/20">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <h3 className="text-sm font-semibold text-green-600 dark:text-green-400 tracking-wide uppercase">
+                  verified contract
+                </h3>
+              </div>
+              
+              <div className="font-mono text-xs tracking-tight text-foreground/80">
+                {validAddress}
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={`https://basescan.org/address/${validAddress}#code`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" size="sm" className="gap-2">
+                    view on basescan
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </a>
+                <a
+                  href="https://github.com/your-repo/audit-report"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" size="sm" className="gap-2">
+                    audit report
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </Card>
+
           {/* Contract Details */}
           <Card className="p-6">
             <h3 className="text-sm font-semibold mb-4">contract details</h3>
             <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">locker contract</p>
-                <AddressDisplay address={validAddress} />
-              </div>
               {lpToken && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">lp token</p>
