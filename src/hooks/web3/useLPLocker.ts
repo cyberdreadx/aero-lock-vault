@@ -266,3 +266,20 @@ export function useGetClaimableFees(lockerAddress?: `0x${string}`, lockId?: stri
     },
   }) as { data: [string, bigint, string, bigint] | undefined; isLoading: boolean; error: Error | null; refetch: () => void };
 }
+
+/**
+ * Get total accumulated fees for a specific lock
+ * @param lockerAddress - Address of the locker contract
+ * @param lockId - ID of the lock to query
+ */
+export function useGetTotalAccumulatedFees(lockerAddress?: `0x${string}`, lockId?: string) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'getTotalAccumulatedFees',
+    args: lockId ? [lockId as `0x${string}`] : undefined,
+    query: {
+      enabled: !!lockerAddress && !!lockId,
+    },
+  }) as { data: [string, bigint, string, bigint] | undefined; isLoading: boolean; error: Error | null; refetch: () => void };
+}
