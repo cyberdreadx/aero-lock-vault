@@ -340,7 +340,7 @@ export default function LockerDetails() {
                 <div className="p-3 bg-muted/30 rounded space-y-2">
                   <p className="text-[10px] font-medium">verification details</p>
                   <div className="space-y-1 text-[10px] text-muted-foreground font-mono">
-                    <p>• compiler: solidity</p>
+                    <p>• compiler: solidity 0.8.20</p>
                     <p>• optimization: enabled</p>
                     <p>• identical bytecode across all lockers</p>
                   </div>
