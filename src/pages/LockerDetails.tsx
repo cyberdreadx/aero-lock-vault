@@ -243,6 +243,20 @@ export default function LockerDetails() {
           aerolock
         </Link>
         <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              const shareUrl = `${window.location.origin}/locked/${validAddress}`;
+              navigator.clipboard.writeText(shareUrl);
+              toast({ 
+                title: '🎉 share link copied!',
+                description: 'share this with your community to show locked liquidity'
+              });
+            }}
+          >
+            📋 copy share link
+          </Button>
           <Link to="/lockers">
             <Button variant="ghost" size="sm">
               dashboard
