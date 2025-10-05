@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { WalletButton } from '@/components/web3/WalletButton';
 import { useDeployedLockers } from '@/hooks/useDeployedLockers';
+import { useCheckLockerOwnership } from '@/hooks/useCheckLockerOwnership';
 import { Button } from '@/components/ui/button';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
 import { formatDistanceToNow } from 'date-fns';
@@ -10,6 +11,7 @@ import aerolockLogo from '@/assets/aerolock-logo.png';
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
   const { data: lockers, isLoading } = useDeployedLockers();
+  const { mutate: checkOwnership, isPending } = useCheckLockerOwnership();
 
   if (!isConnected) {
     return (
@@ -41,9 +43,19 @@ export default function Dashboard() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="space-y-8">
-          <div>
-            <h1 className="text-sm tracking-tight mb-1">your deployed lockers</h1>
-            <p className="text-xs text-muted-foreground">{address && <AddressDisplay address={address} />}</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-sm tracking-tight mb-1">your deployed lockers</h1>
+              <p className="text-xs text-muted-foreground">{address && <AddressDisplay address={address} />}</p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => checkOwnership()}
+              disabled={isPending}
+            >
+              {isPending ? 'checking...' : 'check for lockers'}
+            </Button>
           </div>
 
           {isLoading && (
