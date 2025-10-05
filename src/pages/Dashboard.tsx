@@ -15,7 +15,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center space-y-6">
-          <img src={aerolockLogo} alt="aerolock" className="h-16 mx-auto" />
+          <img src={aerolockLogo} alt="aerolock" className="h-32 mx-auto" />
           <h1 className="text-sm tracking-tight">connect wallet to view locks</h1>
           <WalletButton />
         </div>
