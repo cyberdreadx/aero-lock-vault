@@ -1,4 +1,4 @@
-import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, Twitter, FileText } from "lucide-react";
+import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useGlobalStats } from "@/hooks/useGlobalStats";
@@ -318,11 +318,11 @@ const Index = () => {
                 <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
                   <FileText className="h-3.5 w-3.5" />
                 </a>
-                <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+                <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
                   <Github className="h-3.5 w-3.5" />
                 </a>
-                <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                  <Twitter className="h-3.5 w-3.5" />
+                <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
