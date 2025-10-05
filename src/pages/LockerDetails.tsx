@@ -23,7 +23,9 @@ import { useLockerLocks } from '@/hooks/web3/useUserLocks';
 import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
 import { formatTokenAmount } from '@/lib/web3/utils';
 import { LockCard } from '@/components/web3/LockCard';
+import { Copy } from 'lucide-react';
 import aerolockLogo from '@/assets/aerolock-logo.png';
+import sourceCode from '@/assets/locker-source.sol?raw';
 
 export default function LockerDetails() {
   const { lockerAddress } = useParams();
@@ -348,7 +350,19 @@ export default function LockerDetails() {
                   <p className="text-[10px] text-muted-foreground mb-2">
                     need source code for verification?
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-[10px]"
+                      onClick={() => {
+                        navigator.clipboard.writeText(sourceCode);
+                        toast({ description: 'source code copied to clipboard!' });
+                      }}
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      copy source code
+                    </Button>
                     <a 
                       href="https://github.com/cyberdreadx/aero-lock-vault"
                       target="_blank"
