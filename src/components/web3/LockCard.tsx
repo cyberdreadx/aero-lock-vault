@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useGetLockInfo } from '@/hooks/web3/useLPLocker';
 import { useTokenMetadata } from '@/hooks/web3/useERC20';
 import { getLockStatus, formatTokenAmount, calculateUnlockDate, getTimeRemaining } from '@/lib/web3/utils';
+import { Copy } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 interface LockCardProps {
   lockerAddress: `0x${string}`;
@@ -62,7 +64,20 @@ export function LockCard({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <p className="text-[10px] text-muted-foreground">lock id</p>
-            <p className="text-xs font-mono">{lock.lockId.slice(0, 10)}...{lock.lockId.slice(-8)}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-mono">{lock.lockId.slice(0, 10)}...{lock.lockId.slice(-8)}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={() => {
+                  navigator.clipboard.writeText(lock.lockId);
+                  toast({ description: 'lock id copied!' });
+                }}
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
           <div className="text-right">
             <p className="text-xs font-medium">
