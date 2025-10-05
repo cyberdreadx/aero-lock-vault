@@ -32,9 +32,9 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/lockers" element={<AuthGuard><Dashboard /></AuthGuard>} />
-              <Route path="/deploy" element={<AuthGuard><DeployLocker /></AuthGuard>} />
-              <Route path="/locker/:lockerAddress" element={<AuthGuard><LockerDetails /></AuthGuard>} />
+              <Route path="/lockers" element={<Dashboard />} />
+              <Route path="/deploy" element={<DeployLocker />} />
+              <Route path="/locker/:lockerAddress" element={<LockerDetails />} />
               <Route path="/locked/:lockerAddress" element={<LockedShowcase />} />
               <Route path="/docs" element={<Docs />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
