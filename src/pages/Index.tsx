@@ -55,9 +55,11 @@ const Index = () => {
                   start locking <ArrowRight className="ml-1.5 h-3 w-3" />
                 </Button>
               </Link>
-              <Button variant="outline" className="h-9 text-xs px-6">
-                read docs
-              </Button>
+              <Link to="/docs">
+                <Button variant="outline" className="h-9 text-xs px-6">
+                  read docs
+                </Button>
+              </Link>
             </div>
           </div>
 
