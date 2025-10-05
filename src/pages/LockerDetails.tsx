@@ -255,7 +255,7 @@ export default function LockerDetails() {
               });
             }}
           >
-            📋 copy share link
+            share with community
           </Button>
           <Link to="/lockers">
             <Button variant="ghost" size="sm">
