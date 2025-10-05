@@ -280,7 +280,7 @@ const Docs = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-3">contract verification</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  all aerolock contracts are deployed using identical bytecode:
+                  all aerolock contracts are deployed using identical bytecode. you can find verification details directly in your locker management console.
                 </p>
                 <ul className="space-y-2 text-sm text-muted-foreground mb-3">
                   <li className="flex items-start gap-2">
@@ -293,11 +293,11 @@ const Docs = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>view any locker on basescan to see the contract details</span>
+                    <span>access basescan links and verification info from your locker dashboard</span>
                   </li>
                 </ul>
                 <p className="text-sm text-muted-foreground">
-                  need help verifying your locker on basescan? reach out on <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">X</a> or <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">github</a> and we&apos;ll provide the source code and compiler settings.
+                  view your locker details page for direct links to basescan and verification information. for help with manual verification, reach out on <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">X</a> or <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">github</a>.
                 </p>
               </div>
             </div>

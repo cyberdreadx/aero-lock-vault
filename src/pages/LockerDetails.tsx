@@ -309,6 +309,68 @@ export default function LockerDetails() {
             </div>
           </Card>
 
+          {/* Contract Verification Info */}
+          <Card className="p-6">
+            <h2 className="text-xs font-medium mb-4">contract verification</h2>
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  verify this locker contract on basescan for full transparency
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded">
+                  <span className="text-[10px] text-muted-foreground">view on basescan</span>
+                  <a 
+                    href={`https://basescan.org/address/${validAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                      open basescan →
+                    </Button>
+                  </a>
+                </div>
+
+                <div className="p-3 bg-muted/30 rounded space-y-2">
+                  <p className="text-[10px] font-medium">verification details</p>
+                  <div className="space-y-1 text-[10px] text-muted-foreground font-mono">
+                    <p>• compiler: solidity</p>
+                    <p>• optimization: enabled</p>
+                    <p>• identical bytecode across all lockers</p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-muted/30 rounded">
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    need source code for verification?
+                  </p>
+                  <div className="flex gap-2">
+                    <a 
+                      href="https://github.com/cyberdreadx/aero-lock-vault"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                        github repo
+                      </Button>
+                    </a>
+                    <a 
+                      href="https://x.com/aerolockvault"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                        contact on X
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Lock Liquidity */}
           <Card className="p-6">
             <h2 className="text-xs font-medium mb-4">create new lock</h2>
