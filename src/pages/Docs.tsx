@@ -276,6 +276,26 @@ const Docs = () => {
                   </li>
                 </ul>
               </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-3">verifying your contract on basescan</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  after deploying your locker, you can verify the contract on basescan for full transparency:
+                </p>
+                <ol className="space-y-2 list-decimal list-inside text-sm text-muted-foreground mb-3">
+                  <li>copy your locker contract address from the dashboard</li>
+                  <li>go to <a href="https://basescan.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">basescan.org</a> and search for your contract</li>
+                  <li>click on the "Contract" tab, then "Verify and Publish"</li>
+                  <li>select "Solidity (Single file)" as compiler type</li>
+                  <li>match the compiler version used by the factory contract</li>
+                  <li>paste the locker contract source code</li>
+                  <li>enable optimization if it was used during deployment</li>
+                  <li>submit for verification</li>
+                </ol>
+                <p className="text-sm text-muted-foreground">
+                  once verified, anyone can view and audit your locker's code directly on basescan, proving it's the legitimate aerolock contract.
+                </p>
+              </div>
             </div>
           </Card>
         </section>
