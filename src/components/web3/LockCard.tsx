@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useGetLockInfo } from '@/hooks/web3/useLPLocker';
+import { useGetLockInfo, useGetClaimableFees } from '@/hooks/web3/useLPLocker';
 import { useTokenMetadata } from '@/hooks/web3/useERC20';
 import { getLockStatus, formatTokenAmount, calculateUnlockDate, getTimeRemaining } from '@/lib/web3/utils';
 import { Copy } from 'lucide-react';
@@ -29,8 +29,14 @@ export function LockCard({
 }: LockCardProps) {
   const { address } = useAccount();
   const { data: lockData } = useGetLockInfo(lockerAddress, lockId);
+  const { data: claimableFees } = useGetClaimableFees(lockerAddress, lockId);
   const tokenAddr = (lockData ? (lockData[2] as `0x${string}`) : undefined);
   const { data: tokenMetadata } = useTokenMetadata(tokenAddr);
+  
+  const token0Addr = claimableFees ? (claimableFees[0] as `0x${string}`) : undefined;
+  const token1Addr = claimableFees ? (claimableFees[2] as `0x${string}`) : undefined;
+  const { data: token0Metadata } = useTokenMetadata(token0Addr);
+  const { data: token1Metadata } = useTokenMetadata(token1Addr);
 
   if (!lockData) {
     return (
@@ -97,6 +103,26 @@ export function LockCard({
             <p className="text-xs font-medium">{isOwnLock ? 'you' : lock.owner.slice(0, 6)}</p>
           </div>
         </div>
+
+        {claimableFees && (claimableFees[1] > 0n || claimableFees[3] > 0n) && (
+          <div className="pt-3 border-t">
+            <p className="text-[10px] text-muted-foreground mb-2">claimable fees</p>
+            <div className="space-y-1 text-[10px]">
+              {claimableFees[1] > 0n && token0Metadata && (
+                <div className="flex justify-between">
+                  <span>{token0Metadata.symbol}</span>
+                  <span className="font-mono">{formatTokenAmount(claimableFees[1], token0Metadata.decimals)}</span>
+                </div>
+              )}
+              {claimableFees[3] > 0n && token1Metadata && (
+                <div className="flex justify-between">
+                  <span>{token1Metadata.symbol}</span>
+                  <span className="font-mono">{formatTokenAmount(claimableFees[3], token1Metadata.decimals)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {isOwnLock && (
           <div className="flex flex-wrap gap-2 pt-3 border-t">

@@ -249,3 +249,20 @@ export function useIsPendingOwner(lockerAddress?: `0x${string}`) {
     ? address.toLowerCase() === pendingOwner.toLowerCase() 
     : false;
 }
+
+/**
+ * Get claimable fees for a specific lock
+ * @param lockerAddress - Address of the locker contract
+ * @param lockId - ID of the lock to query
+ */
+export function useGetClaimableFees(lockerAddress?: `0x${string}`, lockId?: string) {
+  return useReadContract({
+    address: lockerAddress,
+    abi: LPLockerABI,
+    functionName: 'getClaimableFees',
+    args: lockId ? [lockId as `0x${string}`] : undefined,
+    query: {
+      enabled: !!lockerAddress && !!lockId,
+    },
+  }) as { data: [string, bigint, string, bigint] | undefined; isLoading: boolean; error: Error | null; refetch: () => void };
+}
