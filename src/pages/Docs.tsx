@@ -47,7 +47,7 @@ const Docs = () => {
                 <strong>connect your wallet</strong> - click "launch app" and connect your web3 wallet
               </li>
               <li className="text-sm">
-                <strong>deploy your locker</strong> - provide your aerodrome LP token address and configure unlock dates
+                <strong>deploy your locker</strong> - provide your aerodrome LP token address and fee receiver
               </li>
               <li className="text-sm">
                 <strong>pay deployment fee</strong> - send ${DEPLOYMENT_FEE_USD} worth of ETH to deploy your custom locker contract
@@ -91,21 +91,23 @@ const Docs = () => {
             </Card>
 
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-3">timelocks explained</h3>
+              <h3 className="text-lg font-semibold mb-3">withdrawal timelock</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                timelocks prevent early withdrawal of locked tokens, providing security for liquidity providers and investors.
+                to withdraw locked tokens, you must first trigger withdrawal, which starts a mandatory {TIMELOCK_DURATION / (24 * 60 * 60)}-day waiting period. this timelock provides security and prevents instant withdrawals.
               </p>
               <div className="space-y-3">
                 <div>
-                  <div className="text-sm font-semibold mb-1">standard timelock</div>
-                  <div className="text-sm text-muted-foreground">
-                    the date when tokens become withdrawable under normal circumstances
-                  </div>
+                  <div className="text-sm font-semibold mb-1">how it works</div>
+                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>trigger withdrawal for your lock</li>
+                    <li>wait {TIMELOCK_DURATION / (24 * 60 * 60)} days for timelock to expire</li>
+                    <li>withdraw your tokens after timelock completes</li>
+                  </ol>
                 </div>
                 <div>
-                  <div className="text-sm font-semibold mb-1">emergency timelock</div>
+                  <div className="text-sm font-semibold mb-1">canceling withdrawal</div>
                   <div className="text-sm text-muted-foreground">
-                    an additional {TIMELOCK_DURATION / (24 * 60 * 60)} day delay for emergency unlocks, providing extra security
+                    if you trigger withdrawal by mistake, you can cancel it before the timelock expires, resetting the lock to its original state
                   </div>
                 </div>
               </div>
@@ -145,11 +147,7 @@ const Docs = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span><strong>unlock date</strong> - when tokens can be withdrawn</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span><strong>initial amount</strong> - how many LP tokens to lock initially</span>
+                    <span><strong>fee receiver address</strong> - where LP fees will be sent when claimed</span>
                   </li>
                 </ul>
               </div>
@@ -184,20 +182,20 @@ const Docs = () => {
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-3">adding more locks</h3>
               <p className="text-sm text-muted-foreground">
-                you can create multiple locks within the same locker contract. each lock has its own amount and unlock date. simply transfer more LP tokens to your locker and create a new lock entry.
+                you can create multiple locks within the same locker contract or top up existing locks with additional LP tokens. simply approve and transfer more LP tokens through your locker dashboard.
               </p>
             </Card>
 
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-3">withdrawing tokens</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                tokens can only be withdrawn after the unlock date passes. the withdrawal process is:
+                to withdraw tokens, you must first trigger withdrawal, then wait for the timelock period to complete:
               </p>
               <ol className="space-y-2 list-decimal list-inside text-sm text-muted-foreground">
-                <li>wait for unlock date to pass</li>
                 <li>go to your locker details page</li>
-                <li>click withdraw for the expired lock</li>
-                <li>confirm the transaction in your wallet</li>
+                <li>click "trigger withdrawal" for your lock</li>
+                <li>wait {TIMELOCK_DURATION / (24 * 60 * 60)} days for the timelock to expire</li>
+                <li>click "withdraw" to claim your tokens</li>
               </ol>
             </Card>
 
@@ -209,9 +207,9 @@ const Docs = () => {
             </Card>
 
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-3">emergency unlock</h3>
+              <h3 className="text-lg font-semibold mb-3">canceling withdrawal</h3>
               <p className="text-sm text-muted-foreground">
-                if you need to unlock tokens before the standard unlock date, you can trigger an emergency unlock. this adds an additional {TIMELOCK_DURATION / (24 * 60 * 60)}-day waiting period for security. use this feature carefully as it cannot be reversed.
+                if you trigger withdrawal by mistake, you can cancel it any time before the {TIMELOCK_DURATION / (24 * 60 * 60)}-day timelock expires. this resets your lock to its active state and you'll need to trigger withdrawal again when you're ready.
               </p>
             </Card>
           </div>
@@ -296,14 +294,14 @@ const Docs = () => {
             <AccordionItem value="item-2">
               <AccordionTrigger>can I add more tokens to an existing locker?</AccordionTrigger>
               <AccordionContent>
-                yes! you can create multiple locks within the same locker contract. each lock has its own amount and unlock date. simply transfer more LP tokens and create a new lock entry.
+                yes! you can create multiple locks within the same locker contract or top up existing locks. simply approve and transfer more LP tokens through your locker dashboard.
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="item-3">
-              <AccordionTrigger>what if I need to unlock tokens early?</AccordionTrigger>
+              <AccordionTrigger>how long does it take to withdraw tokens?</AccordionTrigger>
               <AccordionContent>
-                you can trigger an emergency unlock, which adds an additional {TIMELOCK_DURATION / (24 * 60 * 60)}-day waiting period before tokens become withdrawable. this provides a security buffer and cannot be reversed once initiated.
+                you must first trigger withdrawal, which starts a mandatory {TIMELOCK_DURATION / (24 * 60 * 60)}-day waiting period. after the timelock expires, you can withdraw your tokens at any time. this delay provides security and prevents instant withdrawals.
               </AccordionContent>
             </AccordionItem>
 
@@ -329,9 +327,9 @@ const Docs = () => {
             </AccordionItem>
 
             <AccordionItem value="item-7">
-              <AccordionTrigger>what if the unlock date passes?</AccordionTrigger>
+              <AccordionTrigger>what happens after the timelock expires?</AccordionTrigger>
               <AccordionContent>
-                once the unlock date passes, you can withdraw your tokens at any time through the locker dashboard. there's no expiration - your tokens remain safely locked until you choose to withdraw them.
+                once the {TIMELOCK_DURATION / (24 * 60 * 60)}-day timelock expires after triggering withdrawal, you can withdraw your tokens at any time through the locker dashboard. there's no expiration - your tokens remain safely in the contract until you choose to complete the withdrawal.
               </AccordionContent>
             </AccordionItem>
 
