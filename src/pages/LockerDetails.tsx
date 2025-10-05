@@ -342,6 +342,7 @@ export default function LockerDetails() {
                   <div className="space-y-1 text-[10px] text-muted-foreground font-mono">
                     <p>• compiler: solidity 0.8.20</p>
                     <p>• optimization: enabled</p>
+                    <p>• license: MIT</p>
                     <p>• identical bytecode across all lockers</p>
                   </div>
                 </div>
