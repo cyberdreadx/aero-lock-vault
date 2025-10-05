@@ -226,7 +226,7 @@ const Docs = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-3">smart contract</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  each locker is deployed from our verified factory contract. the locker contracts are:
+                  each locker is deployed directly from the aerolock app. the locker contracts are:
                 </p>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-start gap-2">
@@ -239,7 +239,7 @@ const Docs = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>verified on basescan</span>
+                    <span>identical bytecode across all deployments</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
@@ -280,24 +280,24 @@ const Docs = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-3">contract verification</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  your locker is deployed from our verified factory contract, which means:
+                  all aerolock contracts are deployed using identical bytecode:
                 </p>
                 <ul className="space-y-2 text-sm text-muted-foreground mb-3">
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>the factory contract is verified on basescan</span>
+                    <span>every locker uses the same source code</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>anyone can see your locker was deployed from the verified factory</span>
+                    <span>bytecode can be compared across deployments on basescan</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>the bytecode is identical to other verified lockers</span>
+                    <span>view any locker on basescan to see the contract details</span>
                   </li>
                 </ul>
                 <p className="text-sm text-muted-foreground">
-                  to verify your specific locker instance on basescan, contact us on <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">X</a> or <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">github</a> and we'll help you through the process with the exact source code and compiler settings.
+                  need help verifying your locker on basescan? reach out on <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">X</a> or <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">github</a> and we&apos;ll provide the source code and compiler settings.
                 </p>
               </div>
             </div>
