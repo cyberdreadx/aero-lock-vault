@@ -98,6 +98,16 @@ export function useLPLocker(lockerAddress?: `0x${string}`) {
     } as any);
   };
 
+  const updateClaimableFees = async (lockId: string) => {
+    if (!lockerAddress) throw new Error('Locker address required');
+    return await writeContractAsync({
+      address: lockerAddress,
+      abi: LPLockerABI,
+      functionName: 'updateClaimableFees',
+      args: [lockId as `0x${string}`],
+    } as any);
+  };
+
   const recoverToken = async (token: `0x${string}`, amount: bigint) => {
     if (!lockerAddress) throw new Error('Locker address required');
     return await writeContractAsync({
@@ -118,9 +128,11 @@ export function useLPLocker(lockerAddress?: `0x${string}`) {
     acceptOwnership,
     transferOwnership,
     changeFeeReceiver,
+    updateClaimableFees,
     recoverToken,
   };
 }
+
 
 /**
  * Get information about a specific lock

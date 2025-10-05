@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useGetLockInfo, useGetClaimableFees, useGetTotalAccumulatedFees } from '@/hooks/web3/useLPLocker';
+import { useGetLockInfo, useGetClaimableFees, useGetTotalAccumulatedFees, useLPLocker } from '@/hooks/web3/useLPLocker';
 import { useTokenMetadata } from '@/hooks/web3/useERC20';
 import { getLockStatus, formatTokenAmount, calculateUnlockDate, getTimeRemaining } from '@/lib/web3/utils';
-import { Copy } from 'lucide-react';
+import { Copy, RefreshCw } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface LockCardProps {
@@ -29,8 +29,8 @@ export function LockCard({
 }: LockCardProps) {
   const { address } = useAccount();
   const { data: lockData } = useGetLockInfo(lockerAddress, lockId);
-  const { data: claimableFees } = useGetClaimableFees(lockerAddress, lockId);
-  const { data: totalFees } = useGetTotalAccumulatedFees(lockerAddress, lockId);
+  const { data: claimableFees, refetch: refetchClaimable } = useGetClaimableFees(lockerAddress, lockId);
+  const { data: totalFees, refetch: refetchTotal } = useGetTotalAccumulatedFees(lockerAddress, lockId);
   const tokenAddr = (lockData ? (lockData[2] as `0x${string}`) : undefined);
   const { data: tokenMetadata } = useTokenMetadata(tokenAddr);
   
@@ -38,6 +38,21 @@ export function LockCard({
   const token1Addr = claimableFees ? (claimableFees[2] as `0x${string}`) : undefined;
   const { data: token0Metadata } = useTokenMetadata(token0Addr);
   const { data: token1Metadata } = useTokenMetadata(token1Addr);
+
+  const locker = useLPLocker(lockerAddress);
+  const [refreshingFees, setRefreshingFees] = useState(false);
+  const handleRefreshFees = async () => {
+    try {
+      setRefreshingFees(true);
+      await locker.updateClaimableFees(lockId);
+      await Promise.all([refetchClaimable(), refetchTotal()]);
+      toast({ description: 'fees updated' });
+    } catch (e: any) {
+      toast({ description: e.message || 'failed to refresh fees', variant: 'destructive' });
+    } finally {
+      setRefreshingFees(false);
+    }
+  };
 
   if (!lockData) {
     return (
@@ -105,40 +120,53 @@ export function LockCard({
           </div>
         </div>
 
-        {totalFees && (totalFees[1] > 0n || totalFees[3] > 0n) && (
+        {totalFees && (
           <div className="pt-3 border-t">
             <p className="text-[10px] text-muted-foreground mb-2">total fees earned</p>
             <div className="space-y-1 text-[10px]">
-              {totalFees[1] > 0n && token0Metadata && (
+              {token0Metadata && (
                 <div className="flex justify-between">
                   <span>{token0Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(totalFees[1], token0Metadata.decimals)}</span>
+                  <span className="font-mono">{formatTokenAmount(totalFees[1] ?? 0n, token0Metadata.decimals)}</span>
                 </div>
               )}
-              {totalFees[3] > 0n && token1Metadata && (
+              {token1Metadata && (
                 <div className="flex justify-between">
                   <span>{token1Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(totalFees[3], token1Metadata.decimals)}</span>
+                  <span className="font-mono">{formatTokenAmount(totalFees[3] ?? 0n, token1Metadata.decimals)}</span>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {claimableFees && (claimableFees[1] > 0n || claimableFees[3] > 0n) && (
+        {claimableFees && (
           <div className="pt-3 border-t">
-            <p className="text-[10px] text-muted-foreground mb-2">claimable now</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] text-muted-foreground">claimable now</p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={handleRefreshFees}
+                disabled={refreshingFees}
+                aria-label="refresh fees"
+                title="refresh fees"
+              >
+                <RefreshCw className={`h-3 w-3 ${refreshingFees ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
             <div className="space-y-1 text-[10px]">
-              {claimableFees[1] > 0n && token0Metadata && (
+              {token0Metadata && (
                 <div className="flex justify-between">
                   <span>{token0Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(claimableFees[1], token0Metadata.decimals)}</span>
+                  <span className="font-mono">{formatTokenAmount(claimableFees[1] ?? 0n, token0Metadata.decimals)}</span>
                 </div>
               )}
-              {claimableFees[3] > 0n && token1Metadata && (
+              {token1Metadata && (
                 <div className="flex justify-between">
                   <span>{token1Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(claimableFees[3], token1Metadata.decimals)}</span>
+                  <span className="font-mono">{formatTokenAmount(claimableFees[3] ?? 0n, token1Metadata.decimals)}</span>
                 </div>
               )}
             </div>
