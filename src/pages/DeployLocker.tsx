@@ -11,7 +11,7 @@ import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
 import { formatUnits, parseEther } from 'viem';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
-import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS } from '@/lib/web3/constants';
+import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
 import { CheckCircle2 } from 'lucide-react';
 import aerolockLogo from '@/assets/aerolock-logo.png';
 
@@ -35,6 +35,9 @@ export default function DeployLocker() {
   const { isLoading: isDeployConfirming, isSuccess: isDeploySuccess, data: receipt } = useWaitForTransactionReceipt({ 
     hash: deployHash 
   });
+
+  const isAdmin = isAdminWallet(address);
+  const feePaid = hasPaidFee || isAdmin;
 
   const isValidLpAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
   const isValidFeeAddress = feeReceiverAddress.startsWith('0x') && feeReceiverAddress.length === 42;
@@ -87,7 +90,7 @@ export default function DeployLocker() {
 
   // Handle successful deployment
   useEffect(() => {
-    if (isDeploySuccess && deployHash && receipt?.contractAddress && paymentHash) {
+    if (isDeploySuccess && deployHash && receipt?.contractAddress && (paymentHash || isAdmin)) {
       saveLocker.mutate({
         locker_address: receipt.contractAddress,
         lp_token_address: lpTokenAddress,
@@ -229,8 +232,8 @@ export default function DeployLocker() {
               </div>
             </div>
 
-            {/* Step 2: Payment */}
-            {isValidLpAddress && isValidFeeAddress && tokenMetadata && (
+            {/* Step 2: Payment (skipped for admin wallets) */}
+            {!isAdmin && isValidLpAddress && isValidFeeAddress && tokenMetadata && (
               <div className={`border border-border p-6 ${hasPaidFee ? 'opacity-50' : ''}`}>
                 <div className="flex items-start gap-3 mb-4">
                   <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
@@ -283,7 +286,7 @@ export default function DeployLocker() {
             )}
 
             {/* Step 3: Deploy */}
-            {hasPaidFee && (
+            {feePaid && isValidLpAddress && isValidFeeAddress && tokenMetadata && (
               <div className="border border-border p-6">
                 <div className="flex items-start gap-3 mb-4">
                   <div className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-primary text-primary-foreground">
@@ -310,14 +313,24 @@ export default function DeployLocker() {
               </div>
             )}
 
-            <div className="border border-green-500/20 bg-green-500/10 p-4">
-              <p className="text-[10px] text-green-600 dark:text-green-400 leading-relaxed">
-                🎉 <strong>limited time:</strong> new users save 50% on deployment! normally ${DEPLOYMENT_FEE_ORIGINAL_USD}, now just ${DEPLOYMENT_FEE_USD}. verify your pool details first, then secure your discounted deployment.
-              </p>
-            </div>
+            {!isAdmin && (
+              <div className="border border-green-500/20 bg-green-500/10 p-4">
+                <p className="text-[10px] text-green-600 dark:text-green-400 leading-relaxed">
+                  🎉 <strong>limited time:</strong> new users save 50% on deployment! normally ${DEPLOYMENT_FEE_ORIGINAL_USD}, now just ${DEPLOYMENT_FEE_USD}. verify your pool details first, then secure your discounted deployment.
+                </p>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="border border-primary/20 bg-primary/5 p-4">
+                <p className="text-[10px] text-primary leading-relaxed">
+                  ⚡ <strong>admin wallet:</strong> deployment fee waived
+                </p>
+              </div>
+            )}
 
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• deployment fee: ${DEPLOYMENT_FEE_USD} (~{deploymentFeeEth} ETH, one-time payment)</p>
+              {!isAdmin && <p>• deployment fee: ${DEPLOYMENT_FEE_USD} (~{deploymentFeeEth} ETH, one-time payment)</p>}
               <p>• each locker is a separate contract instance</p>
               <p>• you control the locker as the owner</p>
               <p>• after deployment, you can create locks in this locker</p>
