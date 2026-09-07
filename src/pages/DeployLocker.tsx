@@ -11,7 +11,7 @@ import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
 import { formatUnits, parseEther } from 'viem';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
-import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS } from '@/lib/web3/constants';
+import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
 import { CheckCircle2 } from 'lucide-react';
 import aerolockLogo from '@/assets/aerolock-logo.png';
 
@@ -35,6 +35,9 @@ export default function DeployLocker() {
   const { isLoading: isDeployConfirming, isSuccess: isDeploySuccess, data: receipt } = useWaitForTransactionReceipt({ 
     hash: deployHash 
   });
+
+  const isAdmin = isAdminWallet(address);
+  const feePaid = hasPaidFee || isAdmin;
 
   const isValidLpAddress = lpTokenAddress.startsWith('0x') && lpTokenAddress.length === 42;
   const isValidFeeAddress = feeReceiverAddress.startsWith('0x') && feeReceiverAddress.length === 42;
