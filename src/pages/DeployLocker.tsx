@@ -90,7 +90,7 @@ export default function DeployLocker() {
 
   // Handle successful deployment
   useEffect(() => {
-    if (isDeploySuccess && deployHash && receipt?.contractAddress && paymentHash) {
+    if (isDeploySuccess && deployHash && receipt?.contractAddress && (paymentHash || isAdmin)) {
       saveLocker.mutate({
         locker_address: receipt.contractAddress,
         lp_token_address: lpTokenAddress,
