@@ -313,14 +313,24 @@ export default function DeployLocker() {
               </div>
             )}
 
-            <div className="border border-green-500/20 bg-green-500/10 p-4">
-              <p className="text-[10px] text-green-600 dark:text-green-400 leading-relaxed">
-                🎉 <strong>limited time:</strong> new users save 50% on deployment! normally ${DEPLOYMENT_FEE_ORIGINAL_USD}, now just ${DEPLOYMENT_FEE_USD}. verify your pool details first, then secure your discounted deployment.
-              </p>
-            </div>
+            {!isAdmin && (
+              <div className="border border-green-500/20 bg-green-500/10 p-4">
+                <p className="text-[10px] text-green-600 dark:text-green-400 leading-relaxed">
+                  🎉 <strong>limited time:</strong> new users save 50% on deployment! normally ${DEPLOYMENT_FEE_ORIGINAL_USD}, now just ${DEPLOYMENT_FEE_USD}. verify your pool details first, then secure your discounted deployment.
+                </p>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="border border-primary/20 bg-primary/5 p-4">
+                <p className="text-[10px] text-primary leading-relaxed">
+                  ⚡ <strong>admin wallet:</strong> deployment fee waived
+                </p>
+              </div>
+            )}
 
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• deployment fee: ${DEPLOYMENT_FEE_USD} (~{deploymentFeeEth} ETH, one-time payment)</p>
+              {!isAdmin && <p>• deployment fee: ${DEPLOYMENT_FEE_USD} (~{deploymentFeeEth} ETH, one-time payment)</p>}
               <p>• each locker is a separate contract instance</p>
               <p>• you control the locker as the owner</p>
               <p>• after deployment, you can create locks in this locker</p>
