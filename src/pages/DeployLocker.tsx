@@ -232,8 +232,8 @@ export default function DeployLocker() {
               </div>
             </div>
 
-            {/* Step 2: Payment */}
-            {isValidLpAddress && isValidFeeAddress && tokenMetadata && (
+            {/* Step 2: Payment (skipped for admin wallets) */}
+            {!isAdmin && isValidLpAddress && isValidFeeAddress && tokenMetadata && (
               <div className={`border border-border p-6 ${hasPaidFee ? 'opacity-50' : ''}`}>
                 <div className="flex items-start gap-3 mb-4">
                   <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
@@ -286,7 +286,7 @@ export default function DeployLocker() {
             )}
 
             {/* Step 3: Deploy */}
-            {hasPaidFee && (
+            {feePaid && isValidLpAddress && isValidFeeAddress && tokenMetadata && (
               <div className="border border-border p-6">
                 <div className="flex items-start gap-3 mb-4">
                   <div className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-primary text-primary-foreground">
