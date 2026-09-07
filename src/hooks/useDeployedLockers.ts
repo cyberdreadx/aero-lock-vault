@@ -44,7 +44,7 @@ export function useSaveDeployedLocker() {
       lp_token_address: string;
       fee_receiver_address: string;
       deployment_tx_hash: string;
-      payment_tx_hash: string;
+      payment_tx_hash?: string;
     }) => {
       if (!address) throw new Error('Wallet not connected');
 

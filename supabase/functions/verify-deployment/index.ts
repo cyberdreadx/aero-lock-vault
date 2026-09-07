@@ -12,6 +12,9 @@ const TREASURY_ADDRESS = '0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e';
 const DEPLOYMENT_FEE_USD = 75;
 const MIN_ETH_AMOUNT = '0.001'; // Minimum acceptable payment (adjust based on price volatility)
 
+// Wallets allowed to deploy without paying the fee
+const ADMIN_WALLETS = [TREASURY_ADDRESS.toLowerCase()];
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
