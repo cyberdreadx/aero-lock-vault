@@ -37,8 +37,10 @@ serve(async (req) => {
       walletAddress 
     });
 
-    // Validate inputs
-    if (!paymentTxHash || !lockerAddress || !lpTokenAddress || !feeReceiverAddress || !deploymentTxHash || !walletAddress) {
+    const isAdmin = ADMIN_WALLETS.includes(String(walletAddress).toLowerCase());
+
+    // Validate inputs (admins may deploy without a payment transaction)
+    if (!lockerAddress || !lpTokenAddress || !feeReceiverAddress || !deploymentTxHash || !walletAddress || (!isAdmin && !paymentTxHash)) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -51,53 +53,72 @@ serve(async (req) => {
       transport: http()
     });
 
-    // Verify payment transaction on-chain
-    console.log('Fetching transaction:', paymentTxHash);
-    const transaction = await publicClient.getTransaction({
-      hash: paymentTxHash as `0x${string}`
-    });
+    let paidAmount = '0';
 
-    if (!transaction) {
-      console.error('Transaction not found');
-      return new Response(
-        JSON.stringify({ error: 'Payment transaction not found on chain' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (isAdmin) {
+      // Confirm the deployment transaction was actually sent by the admin wallet
+      const deployTx = await publicClient.getTransaction({
+        hash: deploymentTxHash as `0x${string}`
+      });
+
+      if (!deployTx || deployTx.from.toLowerCase() !== String(walletAddress).toLowerCase()) {
+        console.error('Admin bypass rejected: deployment tx sender mismatch');
+        return new Response(
+          JSON.stringify({ error: 'Deployment transaction was not sent by this wallet' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Admin wallet verified - deployment fee waived');
+    } else {
+      // Verify payment transaction on-chain
+      console.log('Fetching transaction:', paymentTxHash);
+      const transaction = await publicClient.getTransaction({
+        hash: paymentTxHash as `0x${string}`
+      });
+
+      if (!transaction) {
+        console.error('Transaction not found');
+        return new Response(
+          JSON.stringify({ error: 'Payment transaction not found on chain' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify transaction was successful
+      const receipt = await publicClient.getTransactionReceipt({
+        hash: paymentTxHash as `0x${string}`
+      });
+
+      if (!receipt || receipt.status !== 'success') {
+        console.error('Transaction failed or not confirmed:', receipt?.status);
+        return new Response(
+          JSON.stringify({ error: 'Payment transaction failed or not confirmed' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify payment went to treasury
+      if (transaction.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
+        console.error('Payment sent to wrong address:', transaction.to);
+        return new Response(
+          JSON.stringify({ error: 'Payment was not sent to the correct treasury address' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify payment amount (minimum threshold to account for price fluctuations)
+      paidAmount = formatEther(transaction.value);
+      if (parseFloat(paidAmount) < parseFloat(MIN_ETH_AMOUNT)) {
+        console.error('Payment amount too low:', paidAmount);
+        return new Response(
+          JSON.stringify({ error: `Payment amount too low. Minimum ${MIN_ETH_AMOUNT} ETH required` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Payment verified successfully:', paidAmount, 'ETH');
     }
-
-    // Verify transaction was successful
-    const receipt = await publicClient.getTransactionReceipt({
-      hash: paymentTxHash as `0x${string}`
-    });
-
-    if (!receipt || receipt.status !== 'success') {
-      console.error('Transaction failed or not confirmed:', receipt?.status);
-      return new Response(
-        JSON.stringify({ error: 'Payment transaction failed or not confirmed' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify payment went to treasury
-    if (transaction.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
-      console.error('Payment sent to wrong address:', transaction.to);
-      return new Response(
-        JSON.stringify({ error: 'Payment was not sent to the correct treasury address' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify payment amount (minimum threshold to account for price fluctuations)
-    const paidAmount = formatEther(transaction.value);
-    if (parseFloat(paidAmount) < parseFloat(MIN_ETH_AMOUNT)) {
-      console.error('Payment amount too low:', paidAmount);
-      return new Response(
-        JSON.stringify({ error: `Payment amount too low. Minimum ${MIN_ETH_AMOUNT} ETH required` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Payment verified successfully:', paidAmount, 'ETH');
 
     // Payment verified - save to database
     const supabaseClient = createClient(
