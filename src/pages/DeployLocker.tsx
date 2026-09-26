@@ -177,6 +177,10 @@ export default function DeployLocker() {
                     id="lpToken"
                     type="text"
                     placeholder="0x..."
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     value={lpTokenAddress}
                     onChange={(e) => setLpTokenAddress(e.target.value)}
                     className="font-mono"
@@ -214,6 +218,10 @@ export default function DeployLocker() {
                     id="feeReceiver"
                     type="text"
                     placeholder="0x..."
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     value={feeReceiverAddress}
                     onChange={(e) => setFeeReceiverAddress(e.target.value)}
                     className="font-mono"

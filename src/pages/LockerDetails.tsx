@@ -23,7 +23,7 @@ import {
 } from '@/hooks/web3/useLPLocker';
 import { useLockerLocks } from '@/hooks/web3/useUserLocks';
 import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
-import { formatTokenAmount } from '@/lib/web3/utils';
+import { formatTokenAmount, sanitizeAmountInput } from '@/lib/web3/utils';
 import { LockCard } from '@/components/web3/LockCard';
 import { ArrowLeft, Copy, ExternalLink, Github, Share2 } from 'lucide-react';
 import sourceCode from '@/assets/locker-source.sol?raw';
@@ -304,9 +304,9 @@ export default function LockerDetails() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
             {/* Actions: first on mobile, right-hand column on desktop */}
-            <aside className="space-y-6 lg:col-span-5 lg:col-start-8 lg:row-start-1">
+            <aside className="min-w-0 space-y-6 lg:col-span-5 lg:col-start-8 lg:row-start-1">
               {/* Lock Liquidity */}
               <Card className="p-5 sm:p-6">
                 <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-4">create new lock</h2>
@@ -316,14 +316,16 @@ export default function LockerDetails() {
                     <Input
                       type="text"
                       inputMode="decimal"
+                      enterKeyHint="done"
+                      autoComplete="off"
                       placeholder="0.0"
                       value={lockAmount}
-                      onChange={(e) => setLockAmount(e.target.value)}
+                      onChange={(e) => setLockAmount(sanitizeAmountInput(e.target.value))}
                       className="font-mono tabular"
                     />
                     {userBalance !== undefined && tokenMetadata && (
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-[10px] text-muted-foreground truncate">
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <p className="min-w-0 text-[10px] text-muted-foreground truncate">
                           your balance: {formatUnits(userBalance, tokenMetadata.decimals)} {tokenMetadata.symbol}
                         </p>
                         <Button 
@@ -333,7 +335,7 @@ export default function LockerDetails() {
                             setLockAmount(formatUnits(userBalance, tokenMetadata.decimals));
                           }}
                           disabled={userBalance === 0n}
-                          className="h-8 px-3 text-[10px] uppercase tracking-wider sm:h-6"
+                          className="h-8 shrink-0 px-3 text-[10px] uppercase tracking-wider sm:h-6"
                         >
                           max
                         </Button>
@@ -368,9 +370,13 @@ export default function LockerDetails() {
                     <Input
                       type="text"
                       placeholder="0x..."
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                       value={topUpLockId}
                       onChange={(e) => setTopUpLockId(e.target.value)}
-                      className="font-mono" autoComplete="off" spellCheck={false}
+                      className="font-mono"
                     />
                   </div>
                   <div>
@@ -378,14 +384,16 @@ export default function LockerDetails() {
                     <Input
                       type="text"
                       inputMode="decimal"
+                      enterKeyHint="done"
+                      autoComplete="off"
                       placeholder="0.0"
                       value={topUpAmount}
-                      onChange={(e) => setTopUpAmount(e.target.value)}
+                      onChange={(e) => setTopUpAmount(sanitizeAmountInput(e.target.value))}
                       className="font-mono tabular"
                     />
                     {userBalance !== undefined && tokenMetadata && (
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-[10px] text-muted-foreground truncate">
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <p className="min-w-0 text-[10px] text-muted-foreground truncate">
                           your balance: {formatUnits(userBalance, tokenMetadata.decimals)} {tokenMetadata.symbol}
                         </p>
                         <Button 
@@ -395,7 +403,7 @@ export default function LockerDetails() {
                             setTopUpAmount(formatUnits(userBalance, tokenMetadata.decimals));
                           }}
                           disabled={userBalance === 0n}
-                          className="h-8 px-3 text-[10px] uppercase tracking-wider sm:h-6"
+                          className="h-8 shrink-0 px-3 text-[10px] uppercase tracking-wider sm:h-6"
                         >
                           max
                         </Button>
@@ -450,9 +458,13 @@ export default function LockerDetails() {
                         <Input
                           type="text"
                           placeholder="0x..."
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                           value={newOwner}
                           onChange={(e) => setNewOwner(e.target.value)}
-                          className="font-mono" autoComplete="off" spellCheck={false}
+                          className="font-mono"
                         />
                         <Button className="h-11 sm:h-10 text-xs sm:w-auto" onClick={handleTransferOwnership} disabled={isPending || !newOwner}>
                           transfer
@@ -469,9 +481,13 @@ export default function LockerDetails() {
                         <Input
                           type="text"
                           placeholder="0x..."
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                           value={newFeeReceiver}
                           onChange={(e) => setNewFeeReceiver(e.target.value)}
-                          className="font-mono" autoComplete="off" spellCheck={false}
+                          className="font-mono"
                         />
                         <Button className="h-11 sm:h-10 text-xs sm:w-auto" onClick={handleChangeFeeReceiver} disabled={isPending || !newFeeReceiver}>
                           update
@@ -487,7 +503,7 @@ export default function LockerDetails() {
 
             </aside>
 
-            <div className="space-y-6 lg:col-span-7 lg:row-start-1">
+            <div className="min-w-0 space-y-6 lg:col-span-7 lg:row-start-1">
               {/* Locks List */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">

@@ -45,3 +45,11 @@ export function getTimeRemaining(unlockDate: Date | null): string {
   if (days > 0) return `${days}d ${hours}h`;
   return `${hours}h`;
 }
+
+/** keeps an amount field parseable: digits and a single decimal point (commas become points) */
+export function sanitizeAmountInput(value: string): string {
+  const cleaned = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+  const dot = cleaned.indexOf('.');
+  if (dot === -1) return cleaned;
+  return cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, '');
+}
