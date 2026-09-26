@@ -3,106 +3,98 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useGlobalStats } from "@/hooks/useGlobalStats";
 import { LockedPoolsTable } from "@/components/home/LockedPoolsTable";
+import { AppHeader, Logo } from "@/components/layout/AppHeader";
+
+const SectionLabel = ({ index, children }: { index: string; children: string }) => (
+  <h2 className="flex items-center gap-3 font-mono text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-8 sm:mb-10">
+    <span className="text-foreground">{index}</span>
+    <span className="h-px w-6 bg-border" aria-hidden />
+    {children}
+  </h2>
+);
 
 const Index = () => {
   const { data: stats, isLoading } = useGlobalStats();
   return (
-    <div className="min-h-screen">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              <span className="text-sm font-semibold tracking-tight">aerolock</span>
-            </div>
-            <div className="flex items-center gap-4 sm:gap-6 text-xs">
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">features</a>
-              <a href="#how" className="hidden sm:inline text-muted-foreground hover:text-foreground transition-colors">how it works</a>
-              <Link to="/docs" className="text-muted-foreground hover:text-foreground transition-colors">docs</Link>
-              <Link to="/lockers">
-                <Button size="sm" className="h-7 text-xs px-3">
-                  launch app
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-background text-foreground">
+      <AppHeader
+        nav={[
+          { label: 'features', to: '#features', anchor: true },
+          { label: 'how it works', to: '#how', anchor: true },
+          { label: 'pools', to: '#pools', anchor: true },
+          { label: 'docs', to: '/docs' },
+        ]}
+        cta={
+          <Button asChild size="sm" className="h-9 text-xs px-4">
+            <Link to="/lockers">
+              launch app <ArrowRight className="h-3 w-3" />
+            </Link>
+          </Button>
+        }
+      />
 
       {/* Hero Section */}
-      <section className="pt-24 sm:pt-32 pb-12 sm:pb-16">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-2 py-1 border border-border mb-6 text-[10px] uppercase tracking-wider">
-              <Zap className="h-3 w-3" />
-              aerodrome lp locker
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid mask-fade-b pointer-events-none" aria-hidden />
+        <div className="container relative px-4 sm:px-6 pt-14 pb-12 sm:pt-24 sm:pb-20 lg:pt-28">
+          <div className="max-w-5xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 border border-border bg-background mb-6 sm:mb-8 font-mono text-[10px] uppercase tracking-[0.2em]">
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-glow" aria-hidden />
+              aerodrome lp locker · base
             </div>
-            
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-4 leading-[1.1] tracking-tight">
+
+            <h1 className="text-[2.5rem] leading-[1.02] sm:text-6xl lg:text-7xl xl:text-8xl font-bold mb-6 tracking-tighter">
               lock lp tokens.<br />
               claim fees.<br />
-              stay secure.
+              <span className="text-muted-foreground">stay secure.</span>
             </h1>
-            
-            <p className="text-sm sm:text-base text-muted-foreground mb-8 max-w-xl leading-relaxed">
+
+            <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mb-8 sm:mb-10 max-w-xl leading-relaxed">
               lock aerodrome lp tokens indefinitely. trigger 30-day withdrawal countdown when ready. claim fees anytime.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-3">
-              <Link to="/deploy">
-                <Button className="h-9 text-xs px-6">
-                  start locking <ArrowRight className="ml-1.5 h-3 w-3" />
-                </Button>
-              </Link>
-              <Link to="/docs">
-                <Button variant="outline" className="h-9 text-xs px-6">
-                  read docs
-                </Button>
-              </Link>
+              <Button asChild className="h-11 text-sm px-6 w-full sm:w-auto">
+                <Link to="/deploy">
+                  start locking <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 text-sm px-6 w-full sm:w-auto">
+                <Link to="/docs">read docs</Link>
+              </Button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-16 sm:mt-20 max-w-3xl mx-auto">
-            <div className="border border-border p-4 sm:p-5">
-              <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">
-                {isLoading ? '...' : stats?.totalLockers || 0}
+          <div className="grid grid-cols-3 border border-border bg-background mt-14 sm:mt-20 max-w-5xl mx-auto divide-x divide-border">
+            {[
+              { value: stats?.totalLockers, label: 'lockers deployed' },
+              { value: stats?.totalLocks, label: 'active locks' },
+              { value: stats?.lockers.length, label: 'pools tracked' },
+            ].map((stat) => (
+              <div key={stat.label} className="p-3 sm:p-6">
+                <div className="font-mono tabular text-xl sm:text-3xl lg:text-4xl font-medium mb-1 tracking-tight">
+                  {isLoading ? <span className="inline-block h-6 w-10 sm:h-8 sm:w-16 bg-muted animate-pulse" /> : stat.value || 0}
+                </div>
+                <div className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider leading-tight">
+                  {stat.label}
+                </div>
               </div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-                lockers deployed
-              </div>
-            </div>
-            <div className="border border-border p-4 sm:p-5">
-              <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">
-                {isLoading ? '...' : stats?.totalLocks || 0}
-              </div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-                active locks
-              </div>
-            </div>
-            <div className="border border-border p-4 sm:p-5">
-              <div className="text-xl sm:text-2xl font-semibold mb-0.5 tracking-tight">
-                {isLoading ? '...' : stats?.lockers.length || 0}
-              </div>
-              <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-                pools tracked
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Locked Pools Table */}
-      <section className="py-12 sm:py-16 border-t border-border">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-8">
-              locked pools
-            </h2>
+      <section id="pools" className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
+            <SectionLabel index="01">locked pools</SectionLabel>
             {isLoading ? (
-              <div className="border border-border p-8 text-center">
-                <p className="text-xs text-muted-foreground">loading pools...</p>
+              <div className="border border-border divide-y divide-border">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-14 bg-muted/30 animate-pulse" />
+                ))}
               </div>
             ) : (
               <LockedPoolsTable pools={stats?.lockers || []} />
@@ -112,14 +104,12 @@ const Index = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-12 sm:py-16 border-t border-border">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-8 sm:mb-12">
-              features
-            </h2>
+      <section id="features" className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
+            <SectionLabel index="02">features</SectionLabel>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 sm:gap-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border-t border-l border-border">
               {[
                 {
                   icon: Shield,
@@ -152,8 +142,10 @@ const Index = () => {
                   description: "update and track claimable fees on demand.",
                 },
               ].map((feature, i) => (
-                <div key={i} className="group">
-                  <feature.icon className="h-4 w-4 mb-3 transition-transform group-hover:scale-110" />
+                <div key={i} className="group border-r border-b border-border p-5 sm:p-6 hover:bg-muted/40 transition-colors">
+                  <span className="mb-4 flex h-8 w-8 items-center justify-center border border-border group-hover:bg-foreground group-hover:text-background transition-colors">
+                    <feature.icon className="h-4 w-4" />
+                  </span>
                   <h3 className="text-sm font-semibold mb-1.5 tracking-tight">{feature.title}</h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
                 </div>
@@ -164,40 +156,38 @@ const Index = () => {
       </section>
 
       {/* Trust Section */}
-      <section className="py-12 sm:py-16 border-t border-border">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-8 sm:mb-12">
-              why lock liquidity?
-            </h2>
+      <section className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
+            <SectionLabel index="03">why lock liquidity?</SectionLabel>
 
             <div className="space-y-8">
               <div>
-                <h3 className="text-2xl sm:text-3xl font-bold mb-4 tracking-tight">
+                <h3 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 tracking-tighter">
                   prove you're not rugging.
                 </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
                   locking lp tokens is the #1 way to show your community you're serious. 
                   when liquidity is locked, you can't suddenly pull it and disappear. 
                   it's verifiable proof of commitment.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4">
-                <div className="border border-border p-5">
-                  <div className="text-3xl font-bold mb-2 tracking-tight">30d</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border border border-border">
+                <div className="bg-background p-5 sm:p-6">
+                  <div className="font-mono text-3xl sm:text-4xl font-medium mb-2 tracking-tight">30d</div>
                   <div className="text-xs text-muted-foreground">
                     minimum warning before any withdrawal. community sees it coming.
                   </div>
                 </div>
-                <div className="border border-border p-5">
-                  <div className="text-3xl font-bold mb-2 tracking-tight">100%</div>
+                <div className="bg-background p-5 sm:p-6">
+                  <div className="font-mono text-3xl sm:text-4xl font-medium mb-2 tracking-tight">100%</div>
                   <div className="text-xs text-muted-foreground">
                     transparent on-chain. anyone can verify locks on basescan.
                   </div>
                 </div>
-                <div className="border border-border p-5">
-                  <div className="text-3xl font-bold mb-2 tracking-tight">0</div>
+                <div className="bg-background p-5 sm:p-6">
+                  <div className="font-mono text-3xl sm:text-4xl font-medium mb-2 tracking-tight">0</div>
                   <div className="text-xs text-muted-foreground">
                     zero chance of instant rugpull. your community can trade safely.
                   </div>
@@ -217,14 +207,12 @@ const Index = () => {
       </section>
 
       {/* How It Works Section */}
-      <section id="how" className="py-12 sm:py-16 border-t border-border">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-8 sm:mb-12">
-              how it works
-            </h2>
+      <section id="how" className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
+            <SectionLabel index="04">how it works</SectionLabel>
 
-            <div className="space-y-8">
+            <div className="grid gap-px bg-border border border-border sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
                   num: "01",
@@ -247,11 +235,11 @@ const Index = () => {
                   description: "after countdown expires, withdraw tokens. cancel trigger anytime before expiry"
                 },
               ].map((item, i) => (
-                <div key={i} className="flex gap-6 sm:gap-8 group">
-                  <div className="text-3xl sm:text-4xl font-bold text-muted-foreground/20 group-hover:text-foreground/40 transition-colors">
+                <div key={i} className="flex gap-5 bg-background p-5 sm:flex-col sm:gap-6 sm:p-6 group">
+                  <div className="font-mono text-3xl sm:text-4xl font-medium text-muted-foreground/30 group-hover:text-foreground transition-colors">
                     {item.num}
                   </div>
-                  <div className="flex-1 pt-1">
+                  <div className="flex-1 pt-1 sm:pt-0">
                     <h3 className="text-sm font-semibold mb-1 tracking-tight">{item.title}</h3>
                     <p className="text-xs text-muted-foreground">{item.description}</p>
                   </div>
@@ -263,21 +251,21 @@ const Index = () => {
       </section>
 
       {/* Contract Section */}
-      <section className="py-12 sm:py-16 border-t border-border">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
-            <div className="border border-border p-6 sm:p-8">
-              <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-4">
+      <section className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="border border-border bg-card p-5 sm:p-8">
+              <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-4">
                 verified contract
               </h3>
               <p className="text-xs text-muted-foreground mb-4 font-mono break-all">
                 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-[10px] px-3">
+                <Button variant="outline" size="sm" className="h-9 text-xs px-3">
                   view on basescan
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 text-[10px] px-3">
+                <Button variant="outline" size="sm" className="h-9 text-xs px-3">
                   audit report
                 </Button>
               </div>
@@ -287,45 +275,42 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-12 sm:py-16 border-t border-border">
-        <div className="container mx-auto px-4 sm:px-6">
+      <section className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 tracking-tight">
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-3 tracking-tighter">
               ready to lock?
             </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-6">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-8">
               join the degens securing their aerodrome positions
             </p>
-            <Link to="/lockers">
-              <Button className="h-9 text-xs px-6">
-                launch app <ArrowRight className="ml-1.5 h-3 w-3" />
-              </Button>
-            </Link>
+            <Button asChild className="h-11 text-sm px-8 w-full sm:w-auto">
+              <Link to="/lockers">
+                launch app <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
+      <footer className="border-t border-border py-8 pb-safe">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Lock className="h-3.5 w-3.5" />
-                <span className="text-xs font-semibold tracking-tight">aerolock</span>
-              </div>
+              <Logo />
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
                 base・aerodrome
               </div>
-              <div className="flex items-center gap-4">
-                <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                  <FileText className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-1">
+                <Link to="/docs" aria-label="docs" className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                  <FileText className="h-4 w-4" />
+                </Link>
+                <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" aria-label="github" className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                  <Github className="h-4 w-4" />
                 </a>
-                <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
-                  <Github className="h-3.5 w-3.5" />
-                </a>
-                <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
-                  <X className="h-3.5 w-3.5" />
+                <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" aria-label="x" className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-4 w-4" />
                 </a>
               </div>
             </div>

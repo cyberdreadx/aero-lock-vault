@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
+import { ThemeProvider, useTheme } from 'next-themes';
+import type { ReactNode } from 'react';
 import { config } from '@/lib/web3/config';
 import '@rainbow-me/rainbowkit/styles.css';
 import Index from "./pages/Index";
@@ -18,31 +20,42 @@ import { AuthGuard } from "./components/auth/AuthGuard";
 
 const queryClient = new QueryClient();
 
+const rainbowDark = darkTheme({ accentColor: '#f5f5f5', accentColorForeground: '#0a0a0a', borderRadius: 'none' });
+const rainbowLight = lightTheme({ accentColor: '#000', accentColorForeground: '#fff', borderRadius: 'none' });
+
+// keeps the wallet modal in sync with the site theme
+const ThemedRainbowKit = ({ children }: { children: ReactNode }) => {
+  const { resolvedTheme } = useTheme();
+  return (
+    <RainbowKitProvider theme={resolvedTheme === 'light' ? rainbowLight : rainbowDark}>
+      {children}
+    </RainbowKitProvider>
+  );
+};
+
 const App = () => (
   <WagmiProvider config={config}>
     <QueryClientProvider client={queryClient}>
-      <RainbowKitProvider theme={darkTheme({
-        accentColor: '#000',
-        accentColorForeground: '#fff',
-        borderRadius: 'none',
-      })}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/lockers" element={<Dashboard />} />
-              <Route path="/deploy" element={<DeployLocker />} />
-              <Route path="/locker/:lockerAddress" element={<LockerDetails />} />
-              <Route path="/locked/:lockerAddress" element={<LockedShowcase />} />
-              <Route path="/docs" element={<Docs />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </RainbowKitProvider>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+        <ThemedRainbowKit>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/lockers" element={<Dashboard />} />
+                <Route path="/deploy" element={<DeployLocker />} />
+                <Route path="/locker/:lockerAddress" element={<LockerDetails />} />
+                <Route path="/locked/:lockerAddress" element={<LockedShowcase />} />
+                <Route path="/docs" element={<Docs />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ThemedRainbowKit>
+      </ThemeProvider>
     </QueryClientProvider>
   </WagmiProvider>
 );

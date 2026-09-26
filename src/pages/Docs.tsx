@@ -2,46 +2,31 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Lock, ArrowRight, Shield, Clock, DollarSign, Code, ExternalLink, ChevronLeft } from "lucide-react";
+import { ArrowRight, Shield, Clock, DollarSign, Code, ExternalLink } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { TREASURY_ADDRESS, DEPLOYMENT_FEE_USD, TIMELOCK_DURATION } from "@/lib/web3/constants";
 
 const Docs = () => {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              <span className="text-sm font-semibold tracking-tight">aerolock</span>
-            </Link>
-            <Link to="/">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ChevronLeft className="h-4 w-4" />
-                back to home
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background text-foreground">
+      <AppHeader />
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 max-w-4xl">
+      <div className="container px-4 sm:px-6 lg:px-8 py-10 sm:py-16 max-w-4xl">
         {/* Title */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold tracking-tight mb-4">documentation</h1>
-          <p className="text-muted-foreground text-lg">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tighter mb-4">documentation</h1>
+          <p className="text-muted-foreground text-sm sm:text-lg">
             everything you need to know about deploying and managing LP token lockers on aerodrome finance
           </p>
         </div>
 
         {/* Quick Start */}
-        <section className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <section className="mb-12 sm:mb-16">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
             <ArrowRight className="h-5 w-5" />
             quick start
           </h2>
-          <Card className="p-6">
+          <Card className="p-5 sm:p-6">
             <ol className="space-y-4 list-decimal list-inside">
               <li className="text-sm">
                 <strong>connect your wallet</strong> - click "launch app" and connect your web3 wallet
@@ -63,13 +48,13 @@ const Docs = () => {
         </section>
 
         {/* Core Concepts */}
-        <section className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <section className="mb-12 sm:mb-16">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
             <Shield className="h-5 w-5" />
             core concepts
           </h2>
           <div className="grid gap-6">
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">what is a locker?</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 a locker is your own deployed smart contract that holds your aerodrome LP tokens with configurable timelock protection. once deployed, you own and control it completely.
@@ -90,7 +75,7 @@ const Docs = () => {
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">withdrawal timelock</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 to withdraw locked tokens, you must first trigger withdrawal, which starts a mandatory {TIMELOCK_DURATION / (24 * 60 * 60)}-day waiting period. this timelock provides security and prevents instant withdrawals.
@@ -113,7 +98,7 @@ const Docs = () => {
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">LP fee claiming</h3>
               <p className="text-sm text-muted-foreground">
                 while your tokens are locked, they continue earning LP fees from aerodrome. you can claim these fees at any time without affecting your lock status.
@@ -123,12 +108,12 @@ const Docs = () => {
         </section>
 
         {/* Deployment Process */}
-        <section className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <section className="mb-12 sm:mb-16">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
             <Code className="h-5 w-5" />
             deployment process
           </h2>
-          <Card className="p-6">
+          <Card className="p-5 sm:p-6">
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-3">step 1: prepare your LP tokens</h3>
@@ -158,7 +143,7 @@ const Docs = () => {
                   deployment costs ${DEPLOYMENT_FEE_USD} worth of ETH (paid in ETH). this covers gas costs and platform maintenance.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  payment is sent to: <code className="text-xs bg-muted px-1 py-0.5 rounded">{TREASURY_ADDRESS}</code>
+                  payment is sent to: <code className="font-mono text-xs bg-muted px-1 py-0.5 break-all">{TREASURY_ADDRESS}</code>
                 </p>
               </div>
 
@@ -173,20 +158,20 @@ const Docs = () => {
         </section>
 
         {/* Managing Locks */}
-        <section className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <section className="mb-12 sm:mb-16">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
             <Clock className="h-5 w-5" />
             managing locks
           </h2>
           <div className="grid gap-6">
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">adding more locks</h3>
               <p className="text-sm text-muted-foreground">
                 you can create multiple locks within the same locker contract or top up existing locks with additional LP tokens. simply approve and transfer more LP tokens through your locker dashboard.
               </p>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">withdrawing tokens</h3>
               <p className="text-sm text-muted-foreground mb-3">
                 to withdraw tokens, you must first trigger withdrawal, then wait for the timelock period to complete:
@@ -199,14 +184,14 @@ const Docs = () => {
               </ol>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">claiming LP fees</h3>
               <p className="text-sm text-muted-foreground">
                 LP fees accumulate while tokens are locked. claim them anytime through your locker dashboard without affecting your lock status. fees are distributed proportionally to all locked positions.
               </p>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">canceling withdrawal</h3>
               <p className="text-sm text-muted-foreground">
                 if you trigger withdrawal by mistake, you can cancel it any time before the {TIMELOCK_DURATION / (24 * 60 * 60)}-day timelock expires. this resets your lock to its active state and you'll need to trigger withdrawal again when you're ready.
@@ -216,12 +201,12 @@ const Docs = () => {
         </section>
 
         {/* Technical Details */}
-        <section className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <section className="mb-12 sm:mb-16">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
             <Code className="h-5 w-5" />
             technical details
           </h2>
-          <Card className="p-6">
+          <Card className="p-5 sm:p-6">
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-3">smart contract</h3>
@@ -305,7 +290,7 @@ const Docs = () => {
         </section>
 
         {/* FAQ */}
-        <section className="mb-16">
+        <section className="mb-12 sm:mb-16">
           <h2 className="text-2xl font-bold mb-6">frequently asked questions</h2>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
@@ -367,7 +352,7 @@ const Docs = () => {
         </section>
 
         {/* Support */}
-        <section className="mb-16">
+        <section className="mb-12 sm:mb-16">
           <Card className="p-8 text-center">
             <h2 className="text-2xl font-bold mb-4">need more help?</h2>
             <p className="text-muted-foreground mb-6">

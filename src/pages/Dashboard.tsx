@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useAccount } from 'wagmi';
-import { WalletButton } from '@/components/web3/WalletButton';
 import { useDeployedLockers } from '@/hooks/useDeployedLockers';
 import { useCheckLockerOwnership } from '@/hooks/useCheckLockerOwnership';
 import { Button } from '@/components/ui/button';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
+import { AppHeader } from '@/components/layout/AppHeader';
+import { ConnectGate } from '@/components/layout/ConnectGate';
+import { PageHeading } from '@/components/layout/PageHeading';
 import { formatDistanceToNow } from 'date-fns';
-import aerolockLogo from '@/assets/aerolock-logo.png';
+import { ArrowRight, Plus, RefreshCw, Vault } from 'lucide-react';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -15,95 +17,89 @@ export default function Dashboard() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center space-y-6">
-          <img src={aerolockLogo} alt="aerolock" className="h-32 mx-auto" />
-          <h1 className="text-sm tracking-tight">connect wallet to view locks</h1>
-          <WalletButton />
-        </div>
-      </div>
+      <ConnectGate
+        title="connect wallet to view locks"
+        description="your deployed lockers and active locks will show up here."
+      />
     );
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <nav className="border-b border-border px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="text-xs tracking-tight font-medium">
-          aerolock
-        </Link>
-        <div className="flex items-center gap-3">
-          <Link to="/deploy">
-            <Button variant="outline" size="sm">
-              deploy locker
-            </Button>
-          </Link>
-          <WalletButton />
-        </div>
-      </nav>
+      <AppHeader />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="space-y-8">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-sm tracking-tight mb-1">your deployed lockers</h1>
-              <p className="text-xs text-muted-foreground">{address && <AddressDisplay address={address} />}</p>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => checkOwnership()}
-              disabled={isPending}
-            >
-              {isPending ? 'checking...' : 'check for lockers'}
-            </Button>
-          </div>
+      <main className="container px-4 sm:px-6 py-8 sm:py-12">
+        <div className="max-w-5xl mx-auto space-y-8">
+          <PageHeading
+            eyebrow="dashboard"
+            title="your deployed lockers"
+            description={address && <AddressDisplay address={address} />}
+            actions={
+              <>
+                <Button variant="outline" size="sm" className="text-xs" onClick={() => checkOwnership()} disabled={isPending}>
+                  <RefreshCw className={`h-3.5 w-3.5 ${isPending ? 'animate-spin' : ''}`} />
+                  {isPending ? 'checking...' : 'check for lockers'}
+                </Button>
+                <Button asChild size="sm" className="text-xs">
+                  <Link to="/deploy">
+                    <Plus className="h-3.5 w-3.5" />
+                    deploy locker
+                  </Link>
+                </Button>
+              </>
+            }
+          />
 
           {isLoading && (
-            <div className="text-xs text-muted-foreground">loading lockers...</div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {[0, 1].map((i) => (
+                <div key={i} className="h-36 border border-border bg-muted/30 animate-pulse" />
+              ))}
+            </div>
           )}
 
           {!isLoading && (!lockers || lockers.length === 0) && (
-            <div className="border border-border p-8 text-center space-y-4">
-              <p className="text-xs text-muted-foreground">no lockers deployed yet</p>
-              <Link to="/deploy">
-                <Button variant="outline" size="sm">
-                  deploy first locker
-                </Button>
-              </Link>
+            <div className="border border-dashed border-border px-6 py-14 text-center space-y-4">
+              <Vault className="mx-auto h-6 w-6 text-muted-foreground" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">no lockers deployed yet</p>
+                <p className="text-xs text-muted-foreground">deploy a locker for your aerodrome lp token to get started</p>
+              </div>
+              <Button asChild size="sm" className="text-xs">
+                <Link to="/deploy">deploy first locker</Link>
+              </Button>
             </div>
           )}
 
           {!isLoading && lockers && lockers.length > 0 && (
-            <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {lockers.map((locker) => (
                 <Link
                   key={locker.id}
                   to={`/locker/${locker.locker_address}`}
-                  className="border border-border p-5 hover:bg-muted/30 transition-colors"
+                  className="group border border-border bg-card p-5 hover:border-foreground/40 hover:bg-muted/30 transition-colors"
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium">locker contract</p>
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">locker contract</p>
                         <AddressDisplay address={locker.locker_address as `0x${string}`} />
                       </div>
-                      <Button variant="ghost" size="sm" className="text-xs">
-                        manage →
-                      </Button>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                        manage
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </span>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground mb-0.5">lp token</p>
-                        <AddressDisplay 
-                          address={locker.lp_token_address as `0x${string}`} 
-                          showLink={false}
-                        />
+
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">lp token</p>
+                        <AddressDisplay address={locker.lp_token_address as `0x${string}`} showLink={false} />
                       </div>
                       <div>
-                        <p className="text-[10px] text-muted-foreground mb-0.5">deployed</p>
-                        <p className="text-xs">
-                          {locker.deployed_at 
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">deployed</p>
+                        <p className="text-xs leading-8 sm:leading-6">
+                          {locker.deployed_at
                             ? formatDistanceToNow(new Date(locker.deployed_at), { addSuffix: true })
                             : 'unknown'}
                         </p>
@@ -115,7 +111,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

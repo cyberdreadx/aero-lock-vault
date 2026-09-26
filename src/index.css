@@ -24,21 +24,65 @@ All colors MUST be HSL.
     --secondary-foreground: 0 0% 0%;
 
     --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted-foreground: 0 0% 42%;
 
     --accent: 0 0% 0%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 0% 0%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
+    --success: 142 72% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 35 92% 38%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 85%;
     --ring: 0 0% 0%;
+
+    --grid-line: 0 0% 0% / 0.04;
 
     --radius: 0rem;
 
     --transition-smooth: all 0.15s ease;
+  }
+
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
+
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 0 0% 96%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 62%;
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 4%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 4%;
+
+    --success: 142 70% 52%;
+    --success-foreground: 0 0% 4%;
+
+    --warning: 38 92% 60%;
+
+    --border: 0 0% 16%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 96%;
+
+    --grid-line: 0 0% 100% / 0.035;
   }
 }
 
@@ -47,9 +91,48 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'ss01' on, 'cv11' on;
     letter-spacing: -0.01em;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    @apply bg-foreground text-background;
+  }
+}
+
+@layer utilities {
+  /* faint blueprint grid used behind hero sections */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--grid-line)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--grid-line)) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 40%, transparent);
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
