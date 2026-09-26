@@ -25,14 +25,19 @@ export function AddressDisplay({
   };
 
   return (
-    <div className="inline-flex items-center gap-1">
-      <span className="font-mono text-xs tracking-tight">{displayAddress}</span>
+    <div className="inline-flex max-w-full items-center gap-0.5">
+      <span className="font-mono text-xs tracking-tight truncate" title={address}>{displayAddress}</span>
       {showCopy && (
         <Button
           variant="ghost"
           size="icon"
-          className="h-4 w-4"
-          onClick={copyToClipboard}
+          className="h-8 w-8 shrink-0 sm:h-6 sm:w-6 text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            copyToClipboard();
+          }}
+          aria-label="copy address"
         >
           <Copy className="h-3 w-3" />
         </Button>
@@ -42,10 +47,11 @@ export function AddressDisplay({
           href={`${BASE_SCAN_URL}/address/${address}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="view on basescan"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors sm:h-6 sm:w-6"
         >
-          <Button variant="ghost" size="icon" className="h-4 w-4">
-            <ExternalLink className="h-3 w-3" />
-          </Button>
+          <ExternalLink className="h-3 w-3" />
         </a>
       )}
     </div>
