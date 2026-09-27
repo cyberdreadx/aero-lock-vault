@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAccount, useWaitForTransactionReceipt, useDeployContract, useSendTransaction, useSwitchChain } from 'wagmi';
+import { useAccount, useReadContract, useWaitForTransactionReceipt, useDeployContract, useSendTransaction, useSwitchChain } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
@@ -13,11 +13,15 @@ import { toast } from '@/hooks/use-toast';
 import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
 import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
-import { formatUnits, parseEther, isAddress } from 'viem';
+import { formatUnits, parseEther, isAddress, parseAbi } from 'viem';
+import { useLpPositions } from '@/hooks/web3/useLpPositions';
+import { formatTokenAmount } from '@/lib/web3/utils';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
-import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
+import { AERODROME, DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
 import { Check } from 'lucide-react';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
+
+const AERODROME_FACTORY_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
 
 function StepBadge({ n, done }: { n: number; done?: boolean }) {
   return (
@@ -79,6 +83,7 @@ export default function DeployLocker() {
   const { switchChainAsync } = useSwitchChain();
   const [lpTokenAddress, setLpTokenAddress] = useState<string>('');
   const [feeReceiverAddress, setFeeReceiverAddress] = useState<string>('');
+  const [showManualLp, setShowManualLp] = useState(false);
   const [stored, setStored] = useState<DeployProgress>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string>('');
@@ -91,7 +96,8 @@ export default function DeployLocker() {
     const progress = loadProgress(address);
     setStored(progress);
     if (progress.lpTokenAddress) setLpTokenAddress(progress.lpTokenAddress);
-    if (progress.feeReceiverAddress) setFeeReceiverAddress(progress.feeReceiverAddress);
+    // fees usually go to the deployer's own wallet
+    setFeeReceiverAddress((current) => progress.feeReceiverAddress || current || address || '');
   }, [address]);
 
   // Payment transaction
@@ -122,6 +128,21 @@ export default function DeployLocker() {
   const validLpAddress = isValidLpAddress ? (lpTokenAddress as `0x${string}`) : undefined;
 
   const { data: tokenMetadata } = useTokenMetadata(validLpAddress);
+  const {
+    positions,
+    isLoading: isLoadingPositions,
+    isError: isPositionsError,
+    refetch: refetchPositions,
+  } = useLpPositions(address);
+  const { data: isAerodromePool } = useReadContract({
+    address: AERODROME.FACTORY as `0x${string}`,
+    abi: AERODROME_FACTORY_ABI,
+    functionName: 'isPool',
+    args: validLpAddress ? [validLpAddress] : undefined,
+    chainId: base.id,
+    query: { enabled: !!validLpAddress },
+  });
+  const configReady = !!(isValidLpAddress && isValidFeeAddress && tokenMetadata && isAerodromePool === true);
   const { data: tokenBalance } = useTokenBalance(validLpAddress);
   const { data: ethPrice, isLoading: isPriceLoading, isError: isPriceError, refetch: refetchPrice } = useEthPrice();
 
@@ -267,7 +288,7 @@ export default function DeployLocker() {
             {/* Step 1: Configuration */}
             <div className="border border-border bg-card p-5 sm:p-6">
               <div className="flex items-start gap-3 mb-4">
-                <StepBadge n={1} done={!!(isValidLpAddress && isValidFeeAddress && tokenMetadata)} />
+                <StepBadge n={1} done={configReady} />
                 <div className="flex-1">
                   <h2 className="text-sm font-semibold tracking-tight mb-1">configure locker</h2>
                   <p className="text-[10px] text-muted-foreground">
@@ -278,22 +299,111 @@ export default function DeployLocker() {
 
               <div className="sm:pl-10 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="lpToken" className="text-xs">aerodrome lp token address</Label>
-                  <Input
-                    id="lpToken"
-                    type="text"
-                    placeholder="0x..."
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    value={lpTokenAddress}
-                    onChange={(e) => setLpTokenAddress(e.target.value)}
-                    className="font-mono"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    the lp token that will be locked in this contract
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs">your aerodrome lp positions</Label>
+                    <button
+                      type="button"
+                      onClick={refetchPositions}
+                      className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    >
+                      refresh
+                    </button>
+                  </div>
+
+                  {isLoadingPositions && (
+                    <div className="space-y-2">
+                      {[0, 1].map((i) => (
+                        <div key={i} className="h-14 border border-border bg-muted/30 animate-pulse" />
+                      ))}
+                    </div>
+                  )}
+
+                  {!isLoadingPositions && positions.length > 0 && (
+                    <div className="space-y-2" role="radiogroup" aria-label="lp positions">
+                      {positions.map((pos) => {
+                        const selected = lpTokenAddress.toLowerCase() === pos.address.toLowerCase();
+                        return (
+                          <button
+                            key={pos.address}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => {
+                              setLpTokenAddress(pos.address);
+                              setShowManualLp(false);
+                            }}
+                            className={cn(
+                              'flex w-full items-center justify-between gap-3 border p-3 text-left transition-colors',
+                              selected
+                                ? 'border-foreground bg-foreground/5'
+                                : 'border-border hover:border-foreground/40 hover:bg-muted/40',
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{pos.symbol.replace(/^[sv]AMM-/, '')}</p>
+                              <p className="font-mono text-[10px] text-muted-foreground">
+                                {pos.stable ? 'stable' : 'volatile'} · {pos.address.slice(0, 6)}...{pos.address.slice(-4)}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-3">
+                              <span className="font-mono tabular text-xs text-muted-foreground">
+                                {formatTokenAmount(pos.balance, pos.decimals)}
+                              </span>
+                              <span
+                                className={cn(
+                                  'flex h-4 w-4 items-center justify-center rounded-full border',
+                                  selected ? 'border-foreground bg-foreground text-background' : 'border-muted-foreground/50',
+                                )}
+                                aria-hidden
+                              >
+                                {selected && <Check className="h-3 w-3" />}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {!isLoadingPositions && positions.length === 0 && (
+                    <p className="border border-dashed border-border p-3 text-[11px] leading-relaxed text-muted-foreground">
+                      {isPositionsError
+                        ? "couldn't look up your lp tokens right now - paste the address below instead."
+                        : 'no aerodrome lp tokens found in this wallet. if your lp is staked in a gauge, unstake it on aerodrome first, or paste the lp address below.'}
+                    </p>
+                  )}
+
+                  {!showManualLp && positions.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowManualLp(true)}
+                      className="text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      or paste an lp token address
+                    </button>
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <Label htmlFor="lpToken" className="text-xs">lp token address</Label>
+                      <Input
+                        id="lpToken"
+                        type="text"
+                        placeholder="0x..."
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        value={lpTokenAddress}
+                        onChange={(e) => setLpTokenAddress(e.target.value.trim())}
+                        className="font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {isValidLpAddress && isAerodromePool === false && (
+                    <p className="text-[11px] text-destructive">
+                      this isn&apos;t an aerodrome pool (v2 stable/volatile). only aerodrome lp tokens can be locked.
+                    </p>
+                  )}
                 </div>
 
                 {isValidLpAddress && tokenMetadata && (
@@ -340,7 +450,7 @@ export default function DeployLocker() {
             </div>
 
             {/* Step 2: Payment (skipped for admin wallets) */}
-            {!isAdmin && isValidLpAddress && isValidFeeAddress && tokenMetadata && (
+            {!isAdmin && configReady && (
               <div className={`border border-border bg-card p-5 sm:p-6 ${hasPaidFee ? 'opacity-50' : ''}`}>
                 <div className="flex items-start gap-3 mb-4">
                   <StepBadge n={2} done={hasPaidFee} />
@@ -401,7 +511,7 @@ export default function DeployLocker() {
             )}
 
             {/* Step 3: Deploy */}
-            {feePaid && isValidLpAddress && isValidFeeAddress && tokenMetadata && (
+            {feePaid && configReady && (
               <div className="border border-border bg-card p-5 sm:p-6">
                 <div className="flex items-start gap-3 mb-4">
                   <StepBadge n={isAdmin ? 2 : 3} />
