@@ -116,9 +116,9 @@ export default function DeployLocker() {
   } = useWaitForTransactionReceipt({ hash: paymentHash, chainId: base.id });
 
   // Deployment transaction
-  const { deployContract, data: sentDeployHash, isPending: isDirectDeployPending } = useDeployContract();
+  const { deployContract, data: sentDeployHash, isPending: isDirectDeployPending, reset: resetDirectDeploy } = useDeployContract();
   // smart wallets (e.g. the Base app) can't send contract-creation txs, so they call a CREATE2 deployer
-  const { sendTransaction: sendDeployCall, data: sentProxyDeployHash, isPending: isProxyDeployPending } = useSendTransaction();
+  const { sendTransaction: sendDeployCall, data: sentProxyDeployHash, isPending: isProxyDeployPending, reset: resetProxyDeploy } = useSendTransaction();
   const [predictedLocker, setPredictedLocker] = useState<`0x${string}`>();
   const isDeployPending = isDirectDeployPending || isProxyDeployPending;
   const deployHash = sentDeployHash ?? sentProxyDeployHash ?? stored.deployHash;
@@ -130,6 +130,30 @@ export default function DeployLocker() {
   } = useWaitForTransactionReceipt({ hash: deployHash, chainId: base.id });
 
   const deployedLocker = receipt?.contractAddress ?? predictedLocker ?? stored.lockerAddress;
+
+  // A successful tx isn't proof of a locker: a smart wallet's bundle can succeed while its
+  // own call inside failed, and a wallet that can't create contracts may send a no-op.
+  // Only treat the deploy as done once the locker's code exists on-chain.
+  const { data: lockerExists, isLoading: isCheckingLocker } = useQuery({
+    queryKey: ['locker-code', deployedLocker, deployHash],
+    enabled: isDeploySuccess && !!deployedLocker,
+    retry: 3,
+    queryFn: async () => {
+      const code = await baseClient.getCode({ address: deployedLocker! });
+      return !!code && code !== '0x';
+    },
+  });
+  const deployConfirmed = isDeploySuccess && !!deployedLocker && lockerExists === true;
+  const deployWentNowhere = isDeploySuccess && (!deployedLocker || lockerExists === false);
+
+  const startDeployOver = () => {
+    resetDirectDeploy();
+    resetProxyDeploy();
+    setPredictedLocker(undefined);
+    setStored((prev) => ({ ...prev, deployHash: undefined, lockerAddress: undefined }));
+    if (address) saveProgress(address, { deployHash: undefined, lockerAddress: undefined });
+    attemptedSave.current = null;
+  };
 
   // wallets with contract code (smart accounts, EIP-7702 upgraded EOAs) can only make calls
   const { data: isSmartWallet } = useQuery({
@@ -301,12 +325,12 @@ export default function DeployLocker() {
 
   // Record the deployment exactly once per deploy transaction
   useEffect(() => {
-    if (!isDeploySuccess || !deployHash || !deployedLocker) return;
+    if (!deployConfirmed || !deployHash || !deployedLocker) return;
     if (!paymentHash && !isAdmin) return;
     if (attemptedSave.current === deployHash) return;
     attemptedSave.current = deployHash;
     recordDeployment();
-  }, [isDeploySuccess, deployHash, deployedLocker, paymentHash, isAdmin, recordDeployment]);
+  }, [deployConfirmed, deployHash, deployedLocker, paymentHash, isAdmin, recordDeployment]);
 
   if (!isConnected) {
     return (
@@ -568,9 +592,35 @@ export default function DeployLocker() {
                 </div>
 
                 <div className="sm:pl-10">
-                  {!isDeploySuccess && (
+                  {isDeploySuccess && deployedLocker && isCheckingLocker && (
+                    <p className="text-xs text-muted-foreground">confirming your locker on base...</p>
+                  )}
+
+                  {deployWentNowhere && (
+                    <div className="mb-3 space-y-3 border border-warning/40 bg-warning/10 p-3">
+                      <p className="text-xs text-warning leading-relaxed">
+                        your last deploy transaction went through, but it didn&apos;t create a locker.
+                        nothing was locked. you can deploy again.
+                      </p>
+                      {deployHash && (
+                        <a
+                          href={`https://basescan.org/tx/${deployHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block font-mono text-[10px] text-muted-foreground underline underline-offset-4 hover:text-foreground break-all"
+                        >
+                          view that transaction on basescan
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {(!isDeploySuccess || deployWentNowhere) && (
                     <Button
-                      onClick={handleDeploy}
+                      onClick={() => {
+                        if (deployWentNowhere) startDeployOver();
+                        handleDeploy();
+                      }}
                       disabled={isDeployPending || isDeployConfirming || !isValidLpAddress || !isValidFeeAddress}
                       className="w-full h-11 text-sm"
                     >
@@ -578,11 +628,13 @@ export default function DeployLocker() {
                         ? 'confirm in your wallet...'
                         : isDeployConfirming
                         ? 'deploying... waiting for confirmation'
+                        : deployWentNowhere
+                        ? 'deploy again'
                         : 'deploy locker'}
                     </Button>
                   )}
 
-                  {isDeploySuccess && deployedLocker && (
+                  {deployConfirmed && deployedLocker && (
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                         <span className="text-success">✓ deployed at</span>
