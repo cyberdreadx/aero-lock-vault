@@ -554,9 +554,9 @@ export default function LockerDetails() {
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 border border-border bg-muted/30 p-3 font-mono text-[10px] text-muted-foreground sm:grid-cols-4">
                     <p>solidity 0.8.20</p>
-                    <p>optimizer on</p>
+                    <p>optimizer off</p>
                     <p>MIT license</p>
-                    <p>identical bytecode</p>
+                    <p>evm: shanghai</p>
                   </div>
                   <div className="flex flex-wrap gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
                     <Button asChild variant="outline" size="sm" className="text-xs">
