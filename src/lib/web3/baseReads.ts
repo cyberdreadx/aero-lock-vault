@@ -1,9 +1,13 @@
-import { createPublicClient, decodeFunctionResult, encodeFunctionData, http, parseAbi } from 'viem';
+import { createPublicClient, decodeFunctionResult, encodeFunctionData, fallback, http, parseAbi } from 'viem';
+import { BASE_RPC_URLS } from './rpc';
 import { base } from 'viem/chains';
 
 // Read-only Base client for batched reads. wagmi's bundled viem types don't line up
 // with the app's viem, so these reads go through viem directly.
-export const baseClient = createPublicClient({ chain: base, transport: http() });
+export const baseClient = createPublicClient({
+  chain: base,
+  transport: fallback(BASE_RPC_URLS.map((url) => http(url, { timeout: 10_000 }))),
+});
 
 const MULTICALL3_ABI = parseAbi([
   'struct Call3 { address target; bool allowFailure; bytes callData; }',

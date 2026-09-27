@@ -77,11 +77,11 @@ const Index = () => {
             {[
               { value: stats?.totalLockers, label: 'lockers deployed' },
               { value: stats?.totalLocks, label: 'active locks' },
-              { value: stats?.lockers.length, label: 'pools tracked' },
+              { value: stats?.lockedAssets, label: 'tokens & pools locked' },
             ].map((stat) => (
               <div key={stat.label} className="p-3 sm:p-6">
                 <div className="font-mono tabular text-xl sm:text-3xl lg:text-4xl font-medium mb-1 tracking-tight">
-                  {isLoading ? <span className="inline-block h-6 w-10 sm:h-8 sm:w-16 bg-muted animate-pulse" /> : stat.value || 0}
+                  {isLoading ? <span className="inline-block h-6 w-10 sm:h-8 sm:w-16 bg-muted animate-pulse" /> : stat.value ?? "—"}
                 </div>
                 <div className="text-[9px] sm:text-xs text-muted-foreground uppercase tracking-wider leading-tight">
                   {stat.label}

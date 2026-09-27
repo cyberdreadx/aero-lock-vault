@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { createPublicClient, http, formatEther, isAddress, isHash, parseEther } from 'https://esm.sh/viem@2.37.12';
-import { base } from 'https://esm.sh/viem@2.37.12/chains';
+import { formatEther, isAddress, isHash, parseEther } from 'https://esm.sh/viem@2.37.12';
 import { runInBackground, submitLockerVerification } from '../_shared/basescan.ts';
 import { inspectLocker, lockerConstructorArgs } from '../_shared/locker.ts';
+import { createBaseClient } from '../_shared/rpc.ts';
 import { paidToTreasury } from '../_shared/payments.ts';
 
 const corsHeaders = {
@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     const locker = String(lockerAddress).toLowerCase();
-    const publicClient = createPublicClient({ chain: base, transport: http() });
+    const publicClient = createBaseClient();
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
