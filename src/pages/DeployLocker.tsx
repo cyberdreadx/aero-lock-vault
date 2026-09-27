@@ -22,6 +22,7 @@ import type { LockKind } from '@/hooks/web3/useTokenKind';
 import { checkTransferTax } from '@/lib/web3/transferTax';
 import { formatTokenAmount } from '@/lib/web3/utils';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
+import { txErrorMessage } from '@/lib/web3/txError';
 import { AERODROME, DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
 import { Check } from 'lucide-react';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
@@ -72,18 +73,6 @@ function saveProgress(address: string, patch: DeployProgress | null) {
   } catch {
     // storage unavailable (private mode) - progress just won't survive a reload
   }
-}
-
-function txErrorMessage(error: unknown, fallback: string): string {
-  const e = error as { shortMessage?: string; message?: string; name?: string } | undefined;
-  const text = `${e?.name ?? ''} ${e?.shortMessage ?? ''} ${e?.message ?? ''}`.toLowerCase();
-  if (text.includes('user rejected') || text.includes('user denied') || text.includes('rejected the request')) {
-    return 'transaction cancelled in your wallet';
-  }
-  if (text.includes('insufficient funds') || text.includes('exceeds the balance')) {
-    return 'not enough ETH on Base to cover this transaction plus gas';
-  }
-  return e?.shortMessage || e?.message || fallback;
 }
 
 export default function DeployLocker() {

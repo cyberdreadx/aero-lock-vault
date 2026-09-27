@@ -89,3 +89,14 @@ function buildTokenShareText(opts: { status: ShareStatus; lpSymbol?: string; amo
       return [`${subject} locker on ${X_HANDLE}: no active locks right now.`, '', 'live status 👇'].join('\n');
   }
 }
+
+/** Post for affiliates sharing their referral link. */
+export function buildAffiliateShareText(): string {
+  return [
+    `locking liquidity on base? ${X_HANDLE} locks ${AERO_HANDLE} LP and tokens with verified contracts.`,
+    '',
+    "you keep earning LP fees while it's locked, and any withdrawal needs 30 days' public on-chain notice.",
+    '',
+    'lock yours 👇',
+  ].join('\n');
+}

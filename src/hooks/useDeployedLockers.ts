@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import { supabase } from '@/integrations/supabase/client';
+import { getReferrer } from '@/lib/referral';
 
 export interface DeployedLocker {
   id: string;
@@ -56,6 +57,7 @@ export function useSaveDeployedLocker() {
           feeReceiverAddress: locker.fee_receiver_address,
           deploymentTxHash: locker.deployment_tx_hash,
           walletAddress: address.toLowerCase(),
+          referrerAddress: getReferrer(),
         }
       });
 

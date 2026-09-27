@@ -15,6 +15,8 @@ const TREASURY_ADDRESS = '0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e';
 const DEPLOYMENT_FEE_USD = 75;
 // ETH can move between paying and saving, and price feeds differ slightly
 const PRICE_TOLERANCE = 0.9;
+// Share of each referred sale owed to the affiliate who referred it
+const AFFILIATE_COMMISSION_PERCENT = 20n;
 
 // Wallets allowed to deploy without paying the fee
 const ADMIN_WALLETS = [TREASURY_ADDRESS.toLowerCase()];
@@ -62,7 +64,8 @@ serve(async (req) => {
       lpTokenAddress,
       feeReceiverAddress,
       deploymentTxHash,
-      walletAddress
+      walletAddress,
+      referrerAddress
     } = await req.json();
 
     console.log('Verifying deployment:', { paymentTxHash, lockerAddress, walletAddress });
@@ -122,6 +125,7 @@ serve(async (req) => {
     }
 
     let paidAmount = '0';
+    let paidWei = 0n;
     let paymentHash: string | null = null;
 
     if (isAdmin) {
@@ -165,6 +169,7 @@ serve(async (req) => {
         return reject('No payment from this wallet to the treasury was found in that transaction', 403);
       }
       paidAmount = formatEther(paid);
+      paidWei = paid;
       if (paid < requiredWei) {
         return reject(
           `Payment too low: ${paidAmount} ETH sent, about ${formatEther(requiredWei)} ETH ($${DEPLOYMENT_FEE_USD}) required`,
@@ -195,6 +200,22 @@ serve(async (req) => {
     }
 
     console.log('Deployment saved successfully:', data);
+
+    // Credit the affiliate whose link brought this paid sale (never the buyer themselves)
+    const referrer = String(referrerAddress ?? '').toLowerCase();
+    if (paymentHash && paidWei > 0n && isAddress(referrer, { strict: false }) && referrer !== wallet && !ADMIN_WALLETS.includes(referrer)) {
+      const { error: referralError } = await supabaseClient.from('affiliate_referrals').insert({
+        referrer,
+        buyer: wallet,
+        locker_address: locker,
+        payment_tx_hash: paymentHash,
+        sale_wei: paidWei.toString(),
+        commission_wei: ((paidWei * AFFILIATE_COMMISSION_PERCENT) / 100n).toString(),
+      });
+      // the sale itself is already saved; a referral that fails to record is logged, not fatal
+      if (referralError) console.error('Referral not recorded:', referralError);
+      else console.log('Referral recorded for', referrer);
+    }
 
     // Verify the new locker on Basescan without holding up the response
     runInBackground(

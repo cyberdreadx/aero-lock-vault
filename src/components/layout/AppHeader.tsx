@@ -17,6 +17,7 @@ export interface NavItem {
 const APP_NAV: NavItem[] = [
   { label: 'lockers', to: '/lockers' },
   { label: 'deploy', to: '/deploy' },
+  { label: 'earn', to: '/affiliates' },
   { label: 'docs', to: '/docs' },
 ];
 

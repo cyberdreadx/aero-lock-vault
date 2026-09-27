@@ -2,11 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import { ThemeProvider, useTheme } from 'next-themes';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { config } from '@/lib/web3/config';
 import '@rainbow-me/rainbowkit/styles.css';
 import Index from "./pages/Index";
@@ -15,8 +15,10 @@ import DeployLocker from "./pages/DeployLocker";
 import LockerDetails from "./pages/LockerDetails";
 import LockedShowcase from "./pages/LockedShowcase";
 import Docs from "./pages/Docs";
+import Affiliates from "./pages/Affiliates";
 import NotFound from "./pages/NotFound";
 import { AuthGuard } from "./components/auth/AuthGuard";
+import { captureReferral } from "@/lib/referral";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,13 @@ const ThemedRainbowKit = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// remembers ?ref= from affiliate links on whichever page they land
+const ReferralCapture = () => {
+  const { search } = useLocation();
+  useEffect(() => captureReferral(search), [search]);
+  return null;
+};
+
 const App = () => (
   <WagmiProvider config={config}>
     <QueryClientProvider client={queryClient}>
@@ -42,6 +51,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <ReferralCapture />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/lockers" element={<Dashboard />} />
@@ -49,6 +59,7 @@ const App = () => (
                 <Route path="/locker/:lockerAddress" element={<LockerDetails />} />
                 <Route path="/locked/:lockerAddress" element={<LockedShowcase />} />
                 <Route path="/docs" element={<Docs />} />
+                <Route path="/affiliates" element={<Affiliates />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
