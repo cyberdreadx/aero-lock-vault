@@ -6,6 +6,7 @@ import { useTokenMetadata } from '@/hooks/web3/useERC20';
 import { useLockerBalance } from '@/hooks/web3/useLPLocker';
 import { useGetAllLockIds } from '@/hooks/web3/useLPLocker';
 import { formatTokenAmount } from '@/lib/web3/utils';
+import { useTokenKind, type LockKind } from '@/hooks/web3/useTokenKind';
 import { ArrowUpRight, Lock } from 'lucide-react';
 
 interface LockedPool {
@@ -25,10 +26,12 @@ function usePoolData(pool: LockedPool) {
   const { data: balance } = useLockerBalance(lockerAddress);
   const { data: lockIds } = useGetAllLockIds(lockerAddress);
   const { data: tokenMetadata } = useTokenMetadata(lpTokenAddress);
+  const { data: kind } = useTokenKind(lpTokenAddress);
 
   return {
     lpTokenAddress,
     symbol: tokenMetadata?.symbol,
+    kind,
     balance:
       balance !== undefined && tokenMetadata
         ? formatTokenAmount(balance, tokenMetadata.decimals)
@@ -36,6 +39,15 @@ function usePoolData(pool: LockedPool) {
     locks: lockIds?.length || 0,
     deployed: formatDistanceToNow(new Date(pool.deployed_at), { addSuffix: true }),
   };
+}
+
+function KindTag({ kind }: { kind?: LockKind }) {
+  if (!kind) return null;
+  return (
+    <span className="shrink-0 border border-border px-1 py-px font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+      {kind === 'lp' ? 'lp' : 'token'}
+    </span>
+  );
 }
 
 function PoolRow({ pool }: { pool: LockedPool }) {
@@ -47,6 +59,7 @@ function PoolRow({ pool }: { pool: LockedPool }) {
         <div className="flex items-center gap-2">
           <AddressDisplay address={d.lpTokenAddress} showLink={false} />
           {d.symbol && <span className="text-xs text-muted-foreground">({d.symbol})</span>}
+          <KindTag kind={d.kind} />
         </div>
       </td>
       <td className="py-3 px-4 text-xs font-mono tabular whitespace-nowrap">
@@ -75,7 +88,10 @@ function PoolCard({ pool }: { pool: LockedPool }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight truncate">{d.symbol ?? '...'}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+            <span className="truncate">{d.symbol ?? '...'}</span>
+            <KindTag kind={d.kind} />
+          </p>
           <p className="font-mono text-[11px] text-muted-foreground truncate">
             {d.lpTokenAddress.slice(0, 6)}...{d.lpTokenAddress.slice(-4)}
           </p>
@@ -125,7 +141,7 @@ export function LockedPoolsTable({ pools }: LockedPoolsTableProps) {
       <table className="w-full">
         <thead className="bg-muted/40">
           <tr className="border-b border-border">
-            {['lp token', 'locked balance', 'locks', 'deployed', ''].map((h, i) => (
+            {['token', 'locked balance', 'locks', 'deployed', ''].map((h, i) => (
               <th
                 key={i}
                 className="py-3 px-4 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
