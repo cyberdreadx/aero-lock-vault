@@ -5,13 +5,11 @@
 import {
   BaseError,
   ContractFunctionRevertedError,
-  createPublicClient,
   encodeAbiParameters,
-  http,
   keccak256,
   parseAbi,
 } from 'https://esm.sh/viem@2.37.12';
-import { base } from 'https://esm.sh/viem@2.37.12/chains';
+import { createBaseClient } from './rpc.ts';
 
 // keccak256 of an LPLocker's runtime code with its immutable tokenContract zeroed.
 // Identical for every locker deployed so far (checked across all 4 on Base).
@@ -21,7 +19,7 @@ const LOCKER_CODE_FINGERPRINT = '0xd7801788172eb22617bf0284ebd7d87610b4fc84872ab
 const OWNERSHIP_TRANSFERRED = '0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0';
 const ZERO_TOPIC = `0x${'0'.repeat(64)}`;
 
-const client = createPublicClient({ chain: base, transport: http() });
+const client = createBaseClient();
 
 /** The parts of a transaction receipt this check needs. */
 interface DeployReceipt {

@@ -2,10 +2,10 @@
 // Used to backfill lockers deployed before automatic verification, or to retry one.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { createPublicClient, http, isAddress } from 'https://esm.sh/viem@2.37.12';
-import { base } from 'https://esm.sh/viem@2.37.12/chains';
+import { isAddress } from 'https://esm.sh/viem@2.37.12';
 import { submitLockerVerification } from '../_shared/basescan.ts';
 import { inspectLocker, lockerConstructorArgs } from '../_shared/locker.ts';
+import { createBaseClient } from '../_shared/rpc.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +42,7 @@ serve(async (req) => {
     if (error) return json({ error: 'Lookup failed', details: error.message }, 500);
     if (!locker?.deployment_tx_hash) return json({ error: 'Unknown locker' }, 404);
 
-    const publicClient = createPublicClient({ chain: base, transport: http() });
+    const publicClient = createBaseClient();
     const hash = locker.deployment_tx_hash as `0x${string}`;
     const deployReceipt = await publicClient.getTransactionReceipt({ hash });
     const lockerInfo = await inspectLocker(locker.locker_address, deployReceipt);
