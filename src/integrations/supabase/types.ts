@@ -24,6 +24,7 @@ export type Database = {
           id: string
           locker_address: string
           lp_token_address: string
+          payment_tx_hash: string | null
           wallet_address: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           id?: string
           locker_address: string
           lp_token_address: string
+          payment_tx_hash?: string | null
           wallet_address?: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           id?: string
           locker_address?: string
           lp_token_address?: string
+          payment_tx_hash?: string | null
           wallet_address?: string
         }
         Relationships: []
