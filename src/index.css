@@ -93,6 +93,9 @@ All colors MUST be HSL.
 
   html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: clip;
     scroll-behavior: smooth;
     scroll-padding-top: 4.5rem;
   }
@@ -101,7 +104,19 @@ All colors MUST be HSL.
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'ss01' on, 'cv11' on;
     letter-spacing: -0.01em;
-    overflow-x: hidden;
+    overflow-x: clip;
+  }
+
+  /* no double-tap-to-zoom delay on controls */
+  a, button, input, select, textarea, label, [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* iOS Safari zooms into any form field under 16px; keep them at 16px on touch screens */
+  @media (hover: none) and (pointer: coarse) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
 
   ::selection {

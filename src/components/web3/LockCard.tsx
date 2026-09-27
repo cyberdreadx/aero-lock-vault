@@ -92,8 +92,8 @@ export function LockCard({
   return (
     <Card className="p-4 sm:p-5">
       <div className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
+        <div className="flex flex-col gap-3 min-[400px]:flex-row min-[400px]:items-start min-[400px]:justify-between">
+          <div className="shrink-0 space-y-1">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">lock id</p>
             <div className="flex items-center gap-1">
               <p className="text-xs font-mono">{lock.lockId.slice(0, 8)}...{lock.lockId.slice(-6)}</p>
@@ -111,8 +111,8 @@ export function LockCard({
               </Button>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1.5 text-right min-w-0">
-            <p className="font-mono tabular text-sm font-medium truncate max-w-full">
+          <div className="flex min-w-0 flex-row-reverse items-center justify-between gap-2 min-[400px]:flex-col min-[400px]:items-end min-[400px]:gap-1.5 min-[400px]:text-right">
+            <p className="font-mono tabular text-sm font-medium min-w-0 [overflow-wrap:anywhere]">
               {tokenMetadata ? formatTokenAmount(lock.amount, tokenMetadata.decimals) : '...'} {tokenMetadata?.symbol}
             </p>
             <span className={cn('border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider', STATUS_STYLES[status])}>
@@ -137,15 +137,15 @@ export function LockCard({
             <p className="text-[10px] text-muted-foreground mb-2">total fees earned</p>
             <div className="space-y-1 text-xs">
               {token0Metadata && (
-                <div className="flex justify-between">
-                  <span>{token0Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(totalFees[1] ?? 0n, token0Metadata.decimals)}</span>
+                <div className="flex justify-between gap-3">
+                  <span className="shrink-0 max-w-[45%] truncate">{token0Metadata.symbol}</span>
+                  <span className="min-w-0 text-right font-mono tabular [overflow-wrap:anywhere]">{formatTokenAmount(totalFees[1] ?? 0n, token0Metadata.decimals)}</span>
                 </div>
               )}
               {token1Metadata && (
-                <div className="flex justify-between">
-                  <span>{token1Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(totalFees[3] ?? 0n, token1Metadata.decimals)}</span>
+                <div className="flex justify-between gap-3">
+                  <span className="shrink-0 max-w-[45%] truncate">{token1Metadata.symbol}</span>
+                  <span className="min-w-0 text-right font-mono tabular [overflow-wrap:anywhere]">{formatTokenAmount(totalFees[3] ?? 0n, token1Metadata.decimals)}</span>
                 </div>
               )}
             </div>
@@ -170,15 +170,15 @@ export function LockCard({
             </div>
             <div className="space-y-1 text-xs">
               {token0Metadata && (
-                <div className="flex justify-between">
-                  <span>{token0Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(claimableFees[1] ?? 0n, token0Metadata.decimals)}</span>
+                <div className="flex justify-between gap-3">
+                  <span className="shrink-0 max-w-[45%] truncate">{token0Metadata.symbol}</span>
+                  <span className="min-w-0 text-right font-mono tabular [overflow-wrap:anywhere]">{formatTokenAmount(claimableFees[1] ?? 0n, token0Metadata.decimals)}</span>
                 </div>
               )}
               {token1Metadata && (
-                <div className="flex justify-between">
-                  <span>{token1Metadata.symbol}</span>
-                  <span className="font-mono">{formatTokenAmount(claimableFees[3] ?? 0n, token1Metadata.decimals)}</span>
+                <div className="flex justify-between gap-3">
+                  <span className="shrink-0 max-w-[45%] truncate">{token1Metadata.symbol}</span>
+                  <span className="min-w-0 text-right font-mono tabular [overflow-wrap:anywhere]">{formatTokenAmount(claimableFees[3] ?? 0n, token1Metadata.decimals)}</span>
                 </div>
               )}
             </div>
@@ -186,7 +186,7 @@ export function LockCard({
         )}
 
         {isOwnLock && (
-          <div className="grid grid-cols-2 gap-2 pt-3 border-t sm:flex sm:flex-wrap">
+          <div className="grid grid-cols-2 gap-2 pt-3 border-t sm:flex sm:flex-wrap [&_button]:h-auto [&_button]:min-h-9 [&_button]:whitespace-normal [&_button]:py-2 [&_button]:leading-tight">
             {status === 'active' && (
               <Button 
                 size="sm" 

@@ -14,7 +14,7 @@ export function PageHeading({ eyebrow, title, description, actions }: PageHeadin
         {eyebrow && (
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{eyebrow}</p>
         )}
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{title}</h1>
         {description && <div className="text-xs sm:text-sm text-muted-foreground">{description}</div>}
       </div>
       {actions && <div className="flex flex-wrap gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">{actions}</div>}

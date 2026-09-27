@@ -49,7 +49,7 @@ function PoolRow({ pool }: { pool: LockedPool }) {
           {d.symbol && <span className="text-xs text-muted-foreground">({d.symbol})</span>}
         </div>
       </td>
-      <td className="py-3 px-4 text-xs font-mono tabular">
+      <td className="py-3 px-4 text-xs font-mono tabular whitespace-nowrap">
         {d.balance !== undefined ? `${d.balance} ${d.symbol}` : '...'}
       </td>
       <td className="py-3 px-4 text-xs font-mono tabular">{d.locks}</td>
@@ -114,14 +114,15 @@ export function LockedPoolsTable({ pools }: LockedPoolsTableProps) {
   return (
     <div className="border border-border bg-card">
       {/* mobile: stacked cards */}
-      <div className="divide-y divide-border md:hidden">
+      <div className="divide-y divide-border lg:hidden">
         {pools.map((pool) => (
           <PoolCard key={pool.locker_address} pool={pool} />
         ))}
       </div>
 
       {/* desktop: table */}
-      <table className="hidden w-full md:table">
+      <div className="hidden overflow-x-auto lg:block">
+      <table className="w-full">
         <thead className="bg-muted/40">
           <tr className="border-b border-border">
             {['lp token', 'locked balance', 'locks', 'deployed', ''].map((h, i) => (
@@ -140,6 +141,7 @@ export function LockedPoolsTable({ pools }: LockedPoolsTableProps) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
