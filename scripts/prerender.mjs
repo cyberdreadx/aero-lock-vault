@@ -25,7 +25,7 @@ const escapeAttr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').repla
 
 function withMeta(html, route) {
   const { title, description } = META[route];
-  const url = SITE + (route === '/' ? '/' : route);
+  const url = SITE + (route === '/' ? '/' : `${route}/`); // Netlify serves /docs as /docs/
   return html
     .replace(/<title>[^<]*<\/title>/, `<title>${escapeAttr(title)}</title>`)
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${escapeAttr(description)}$2`)
