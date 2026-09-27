@@ -1,7 +1,3 @@
-export const CONTRACTS = {
-  LP_LOCKER: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9', // Deployed LPLocker contract address
-} as const;
-
 export const AERODROME = {
   FACTORY: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
   ROUTER: '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43',

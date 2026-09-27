@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { createPublicClient, decodeFunctionResult, encodeFunctionData, http, parseAbi } from 'viem';
-import { base } from 'viem/chains';
+import { decodeFunctionResult, encodeFunctionData, parseAbi } from 'viem';
+import { multicallRead } from '@/lib/web3/baseReads';
 import { AERODROME } from '@/lib/web3/constants';
 
 export interface LpPosition {
@@ -13,7 +13,6 @@ export interface LpPosition {
 }
 
 interface BlockscoutTokenBalance {
-  value: string | null;
   token: null | {
     address?: string;
     address_hash?: string;
@@ -24,16 +23,9 @@ interface BlockscoutTokenBalance {
   };
 }
 
-// read-only Base client (wagmi's bundled viem types don't line up with the app's viem)
-const baseClient = createPublicClient({ chain: base, transport: http() });
-
 const BLOCKSCOUT_URL = 'https://base.blockscout.com/api/v2/addresses';
 const FACTORY_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
-const MULTICALL3_ABI = parseAbi([
-  'struct Call3 { address target; bool allowFailure; bytes callData; }',
-  'struct Result { bool success; bytes returnData; }',
-  'function aggregate3(Call3[] calls) view returns (Result[] returnData)', // payable on-chain; view for a read-only call,
-]);
+const ERC20_BALANCE_ABI = parseAbi(['function balanceOf(address account) view returns (uint256)']);
 
 /** Aerodrome LP tokens held by `wallet`, largest balance first. */
 export async function fetchLpPositions(wallet: `0x${string}`): Promise<LpPosition[]> {
@@ -41,47 +33,46 @@ export async function fetchLpPositions(wallet: `0x${string}`): Promise<LpPositio
   if (!res.ok) throw new Error(`blockscout ${res.status}`);
   const items = (await res.json()) as BlockscoutTokenBalance[];
 
+  // Blockscout only supplies candidate tokens; balances are read on-chain below
   const candidates = items
     .flatMap((i) => {
-      // entries can lack token details or carry odd values; skip rather than fail
-      if (i.token?.type !== 'ERC-20' || !/^\d+$/.test(i.value ?? '')) return [];
-      const balance = BigInt(i.value!);
-      if (balance === 0n) return [];
+      // entries can lack token details; skip rather than fail
+      if (i.token?.type !== 'ERC-20') return [];
+      const address = (i.token.address_hash ?? i.token.address ?? '') as `0x${string}`;
+      if (!address) return [];
       return [{
-        address: (i.token.address_hash ?? i.token.address ?? '') as `0x${string}`,
+        address,
         symbol: i.token.symbol ?? '',
         name: i.token.name ?? '',
         decimals: Number(i.token.decimals ?? 18),
-        balance,
       }];
-    })
-    .filter((t) => t.address);
+    });
   if (candidates.length === 0) return [];
 
-  // one aggregate3 call asks the factory about every candidate
-  const calls = candidates.map((t) => ({
-    target: AERODROME.FACTORY as `0x${string}`,
-    allowFailure: true,
-    callData: encodeFunctionData({ abi: FACTORY_ABI, functionName: 'isPool', args: [t.address] }),
-  }));
-  const raw = (await baseClient.request({
-    method: 'eth_call',
-    params: [
+  // One batched call: is it an Aerodrome pool (factory), and the live balance
+  // (Blockscout's balances can lag, e.g. right after LP moves into a locker).
+  const results = await multicallRead(
+    candidates.flatMap((t) => [
       {
-        to: base.contracts.multicall3.address,
-        data: encodeFunctionData({ abi: MULTICALL3_ABI, functionName: 'aggregate3', args: [calls] }),
+        target: AERODROME.FACTORY as `0x${string}`,
+        callData: encodeFunctionData({ abi: FACTORY_ABI, functionName: 'isPool', args: [t.address] }),
       },
-      'latest',
-    ],
-  })) as `0x${string}`; // eth_call always returns hex
-  const results = decodeFunctionResult({ abi: MULTICALL3_ABI, functionName: 'aggregate3', data: raw });
-  const isPool = results.map(
-    (r) => r.success && r.returnData !== '0x' && decodeFunctionResult({ abi: FACTORY_ABI, functionName: 'isPool', data: r.returnData }),
+      {
+        target: t.address,
+        callData: encodeFunctionData({ abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [wallet] }),
+      },
+    ]),
   );
 
   return candidates
-    .filter((_, i) => isPool[i] === true)
-    .map((t) => ({ ...t, stable: t.symbol.startsWith('sAMM') }))
+    .flatMap((t, i) => {
+      const poolData = results[i * 2];
+      const balanceData = results[i * 2 + 1];
+      if (!poolData || !balanceData) return [];
+      if (!decodeFunctionResult({ abi: FACTORY_ABI, functionName: 'isPool', data: poolData })) return [];
+      const balance = decodeFunctionResult({ abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', data: balanceData });
+      return balance > 0n ? [{ ...t, balance, stable: t.symbol.startsWith('sAMM') }] : [];
+    })
     .sort((a, b) => (a.balance > b.balance ? -1 : 1));
 }
 
