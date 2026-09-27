@@ -10,9 +10,6 @@ const COMPILER_VERSION = 'v0.8.20+commit.a1b79de6';
 const EVM_VERSION = 'shanghai';
 const MIT_LICENSE = '3';
 
-// constructor(address tokenContract_, address owner_, address feeReceiver_) = 3 x 32 bytes
-const CONSTRUCTOR_ARGS_HEX_LENGTH = 3 * 64;
-
 export type VerifyResult =
   | { status: 'submitted'; guid: string }
   | { status: 'already_verified' }
@@ -20,12 +17,6 @@ export type VerifyResult =
   | { status: 'failed'; reason: string };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** constructor args are the tail of the deployment tx input (creation code + abi-encoded args) */
-export function constructorArgsFromDeployInput(input: string): string {
-  const hex = input.startsWith('0x') ? input.slice(2) : input;
-  return hex.slice(-CONSTRUCTOR_ARGS_HEX_LENGTH);
-}
 
 export async function submitLockerVerification(
   lockerAddress: string,

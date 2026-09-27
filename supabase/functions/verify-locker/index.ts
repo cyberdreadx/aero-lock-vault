@@ -4,7 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { createPublicClient, http, isAddress } from 'https://esm.sh/viem@2.37.12';
 import { base } from 'https://esm.sh/viem@2.37.12/chains';
-import { constructorArgsFromDeployInput, submitLockerVerification } from '../_shared/basescan.ts';
+import { submitLockerVerification } from '../_shared/basescan.ts';
+import { inspectLocker, lockerConstructorArgs } from '../_shared/locker.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,18 +44,15 @@ serve(async (req) => {
 
     const publicClient = createPublicClient({ chain: base, transport: http() });
     const hash = locker.deployment_tx_hash as `0x${string}`;
-    const [deployTx, deployReceipt] = await Promise.all([
-      publicClient.getTransaction({ hash }),
-      publicClient.getTransactionReceipt({ hash }),
-    ]);
-
-    if (deployReceipt.contractAddress?.toLowerCase() !== locker.locker_address.toLowerCase()) {
-      return json({ error: 'Deployment transaction does not match this locker' }, 400);
+    const deployReceipt = await publicClient.getTransactionReceipt({ hash });
+    const lockerInfo = await inspectLocker(locker.locker_address, deployReceipt);
+    if (!lockerInfo.ok) {
+      return json({ error: lockerInfo.reason }, 400);
     }
 
     const result = await submitLockerVerification(
       locker.locker_address,
-      constructorArgsFromDeployInput(deployTx.input),
+      lockerConstructorArgs(lockerInfo.tokenContract, lockerInfo.owner, lockerInfo.feeReceiver),
     );
     return json(result, result.status === 'failed' ? 502 : 200);
   } catch (error) {
