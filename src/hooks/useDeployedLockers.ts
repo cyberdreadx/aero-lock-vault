@@ -59,7 +59,11 @@ export function useSaveDeployedLocker() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // non-2xx responses carry the server's reason in the body
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(body?.error || error.message);
+      }
       if (data?.error) throw new Error(data.error);
       return data.data;
     },
