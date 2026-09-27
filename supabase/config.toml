@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.check-locker-ownership]
 verify_jwt = false
+
+[functions.verify-locker]
+verify_jwt = false

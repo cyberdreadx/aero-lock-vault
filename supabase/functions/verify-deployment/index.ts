@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { createPublicClient, http, formatEther } from 'https://esm.sh/viem@2.37.12';
 import { base } from 'https://esm.sh/viem@2.37.12/chains';
+import { constructorArgsFromDeployInput, runInBackground, submitLockerVerification } from '../_shared/basescan.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,6 +154,20 @@ serve(async (req) => {
     }
 
     console.log('Deployment saved successfully:', data);
+
+    // Verify the new locker on Basescan without holding up the response
+    runInBackground((async () => {
+      const hash = deploymentTxHash as `0x${string}`;
+      const [deployTx, deployReceipt] = await Promise.all([
+        publicClient.getTransaction({ hash }),
+        publicClient.getTransactionReceipt({ hash }),
+      ]);
+      if (deployReceipt.contractAddress?.toLowerCase() !== String(lockerAddress).toLowerCase()) {
+        console.warn('Skipping Basescan verification: deployment tx did not create', lockerAddress);
+        return;
+      }
+      await submitLockerVerification(lockerAddress, constructorArgsFromDeployInput(deployTx.input));
+    })());
 
     return new Response(
       JSON.stringify({ 
