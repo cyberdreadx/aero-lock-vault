@@ -83,13 +83,13 @@ export default function LockerDetails() {
     try {
       const amount = parseUnits(lockAmount, tokenMetadata.decimals);
       await locker.lockLiquidity(amount);
-      toast({ description: 'liquidity locked successfully!' });
+      toast({ description: `${isTokenLock ? 'tokens' : 'liquidity'} locked successfully!` });
       setLockAmount('');
       refetchLocks();
       refetchBalance();
       refetchAllowance();
     } catch (error: any) {
-      toast({ description: error.message || 'failed to lock liquidity', variant: 'destructive' });
+      toast({ description: error.message || `failed to lock ${isTokenLock ? 'tokens' : 'liquidity'}`, variant: 'destructive' });
     } finally {
       setIsPending(false);
     }
@@ -101,7 +101,7 @@ export default function LockerDetails() {
     try {
       const amount = parseUnits(lockAmount, tokenMetadata.decimals);
       await token.approve(validAddress, amount);
-      toast({ description: 'approval successful! you can now lock liquidity' });
+      toast({ description: `approval successful! you can now lock ${isTokenLock ? 'tokens' : 'liquidity'}` });
       refetchAllowance();
     } catch (error: any) {
       toast({ description: error.message || 'approval failed', variant: 'destructive' });
@@ -362,7 +362,7 @@ export default function LockerDetails() {
                       </Button>
                     ) : (
                       <Button className="w-full h-11 sm:h-10 text-xs" onClick={handleLockLiquidity} disabled={isPending}>
-                        {isPending ? 'locking...' : 'lock liquidity'}
+                        {isPending ? 'locking...' : isTokenLock ? 'lock tokens' : 'lock liquidity'}
                       </Button>
                     );
                   })()}
