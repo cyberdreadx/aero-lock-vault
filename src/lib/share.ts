@@ -6,6 +6,8 @@ export type ShareStatus = 'locked' | 'pending' | 'withdrawable' | 'none';
 const QUOTE_TOKENS = new Set(['WETH', 'ETH', 'USDC', 'USDBC', 'USDT', 'DAI', 'CBBTC', 'CBETH', 'AERO', 'EURC']);
 
 const X_HANDLE = '@aerolockvault';
+// Aerodrome's account (rebranded to Aero)
+const AERO_HANDLE = '@aeroxyz';
 
 /** "vAMM-LNCTS/WETH" -> "LNCTS/WETH" */
 export function pairName(lpSymbol?: string): string {
@@ -34,19 +36,19 @@ export function buildShareText(opts: {
       return [
         `🔒 ${subject} liquidity is locked on ${X_HANDLE}`,
         '',
-        `${opts.amount ? `${opts.amount} ` : ''}${pair} LP locked. any withdrawal needs 30 days' public on-chain notice.`,
+        `${opts.amount ? `${opts.amount} ` : ''}${pair} ${AERO_HANDLE} LP locked. any withdrawal needs 30 days' public on-chain notice.`,
         '',
         'check it live 👇',
       ].join('\n');
     case 'pending':
       return [
-        `⚠️ a withdrawal has been triggered for ${subject} liquidity on ${X_HANDLE}${opts.unlocksAt ? `. it unlocks ${format(opts.unlocksAt, 'MMM d, yyyy')}` : ''}.`,
+        `⚠️ a withdrawal has been triggered for ${subject} ${AERO_HANDLE} liquidity on ${X_HANDLE}${opts.unlocksAt ? `. it unlocks ${format(opts.unlocksAt, 'MMM d, yyyy')}` : ''}.`,
         '',
         'live status 👇',
       ].join('\n');
     case 'withdrawable':
       return [
-        `⚠️ the 30-day notice has passed: ${subject} liquidity on ${X_HANDLE} can now be withdrawn.`,
+        `⚠️ the 30-day notice has passed: ${subject} ${AERO_HANDLE} liquidity on ${X_HANDLE} can now be withdrawn.`,
         '',
         'live status 👇',
       ].join('\n');
