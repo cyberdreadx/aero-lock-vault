@@ -16,6 +16,14 @@ import { Lock, Shield, Clock, CheckCircle2, Share2, ExternalLink, ArrowRight, Li
 import { format, formatDistanceToNow } from 'date-fns';
 import { useLockStatuses, type LockState } from '@/hooks/web3/useLockStatuses';
 import { cn } from '@/lib/utils';
+import { buildShareText, xShareUrl } from '@/lib/share';
+
+// X's logo (lucide only ships the old bird / a generic "x")
+const XLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 import { AppHeader } from '@/components/layout/AppHeader';
 
 export default function LockedShowcase() {
@@ -58,11 +66,20 @@ export default function LockedShowcase() {
     toast({ description: '🎉 share link copied to clipboard!' });
   };
 
+  const shareText = buildShareText({
+    status: overall === 'loading' ? 'none' : overall === 'withdrawable' ? 'withdrawable' : overall,
+    lpSymbol: tokenMetadata?.symbol,
+    amount: lockedBalance !== undefined && tokenMetadata ? formatTokenAmount(lockedBalance, tokenMetadata.decimals) : undefined,
+    unlocksAt: nextUnlock,
+  });
+
+  const handleShareOnX = () => {
+    window.open(xShareUrl(shareText, window.location.href), '_blank', 'noopener,noreferrer');
+  };
+
   const handleCopyForSocials = () => {
-    const headline = overall === 'locked' ? '🔒 Liquidity Locked on AeroLock!' : '🔒 AeroLock liquidity status';
-    const text = `${headline}\n\n${lockedBalance !== undefined && tokenMetadata ? formatTokenAmount(lockedBalance, tokenMetadata.decimals) : ''} ${tokenMetadata?.symbol || 'LP'} tokens secured\n\nVerified on Base: ${window.location.href}`;
-    navigator.clipboard.writeText(text);
-    toast({ description: '💬 social media message copied!' });
+    navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+    toast({ description: 'post text copied - paste it into telegram, discord or x' });
   };
 
   return (
@@ -176,22 +193,37 @@ export default function LockedShowcase() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
+                  onClick={handleShareOnX}
+                  disabled={overall === 'loading'}
+                  className="w-full sm:w-auto text-sm"
+                >
+                  <XLogo className="h-4 w-4" /> share on X
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={handleCopyForSocials}
+                  disabled={overall === 'loading'}
+                  className="w-full sm:w-auto text-sm"
+                >
+                  <MessageSquare className="h-4 w-4" /> copy post text
+                </Button>
+                <Button
+                  size="lg"
+                  variant="ghost"
                   onClick={handleCopyLink}
                   className="w-full sm:w-auto text-sm"
                 >
-                  <Link2 className="h-4 w-4" /> copy share link
-                </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline"
-                  onClick={handleCopyForSocials}
-                  className="w-full sm:w-auto text-sm"
-                >
-                  <MessageSquare className="h-4 w-4" /> copy for x / discord
+                  <Link2 className="h-4 w-4" /> copy link
                 </Button>
               </div>
+              {overall !== 'loading' && (
+                <p className="mx-auto max-w-md whitespace-pre-line border border-border bg-muted/30 p-3 text-left text-xs text-muted-foreground">
+                  {shareText}
+                </p>
+              )}
             </div>
           </Card>
 
