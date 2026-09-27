@@ -29,6 +29,7 @@ const Index = () => {
           { label: 'pricing', to: '#pricing', anchor: true },
           { label: 'lock tokens', to: '/deploy?type=token' },
           { label: 'pools', to: '#pools', anchor: true },
+          { label: 'earn', to: '/affiliates' },
           { label: 'docs', to: '/docs' },
         ]}
         cta={

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliate_referrals: {
+        Row: {
+          buyer: string
+          commission_wei: string
+          created_at: string
+          id: string
+          locker_address: string
+          paid_at: string | null
+          paid_tx_hash: string | null
+          payment_tx_hash: string
+          referrer: string
+          sale_wei: string
+        }
+        Insert: {
+          buyer: string
+          commission_wei: string
+          created_at?: string
+          id?: string
+          locker_address: string
+          paid_at?: string | null
+          paid_tx_hash?: string | null
+          payment_tx_hash: string
+          referrer: string
+          sale_wei: string
+        }
+        Update: {
+          buyer?: string
+          commission_wei?: string
+          created_at?: string
+          id?: string
+          locker_address?: string
+          paid_at?: string | null
+          paid_tx_hash?: string | null
+          payment_tx_hash?: string
+          referrer?: string
+          sale_wei?: string
+        }
+        Relationships: []
+      }
       deployed_lockers: {
         Row: {
           created_at: string | null

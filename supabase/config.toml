@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.verify-locker]
 verify_jwt = false
+
+[functions.affiliate-payout]
+verify_jwt = false

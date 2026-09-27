@@ -17,6 +17,8 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { useLockStatuses, type LockState } from '@/hooks/web3/useLockStatuses';
 import { cn } from '@/lib/utils';
 import { buildShareText, xShareUrl } from '@/lib/share';
+import { withReferral } from '@/lib/referral';
+import { useAccount } from 'wagmi';
 import { useTokenKind } from '@/hooks/web3/useTokenKind';
 
 // X's logo (lucide only ships the old bird / a generic "x")
@@ -29,6 +31,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 
 export default function LockedShowcase() {
   const { lockerAddress } = useParams();
+  const { address } = useAccount();
   const validAddress = lockerAddress as `0x${string}`;
 
   const { data: owner } = useLockerOwner(validAddress);
@@ -65,8 +68,11 @@ export default function LockedShowcase() {
           ? 'pending'
           : 'locked';
 
+  // links shared by a connected wallet earn that wallet affiliate commission
+  const shareUrl = withReferral(window.location.href, address);
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(shareUrl);
     toast({ description: '🎉 share link copied to clipboard!' });
   };
 
@@ -79,11 +85,11 @@ export default function LockedShowcase() {
   });
 
   const handleShareOnX = () => {
-    window.open(xShareUrl(shareText, window.location.href), '_blank', 'noopener,noreferrer');
+    window.open(xShareUrl(shareText, shareUrl), '_blank', 'noopener,noreferrer');
   };
 
   const handleCopyForSocials = () => {
-    navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+    navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
     toast({ description: 'post text copied - paste it into telegram, discord or x' });
   };
 

@@ -1,17 +1,27 @@
+/** ETH that `wallet` sent to the treasury in `tx` (see ethSent). */
+export function paidToTreasury(
+  tx: { hash: string; from: string; to: string | null; value: bigint },
+  wallet: string,
+  treasuryAddress: string,
+): Promise<bigint | null> {
+  return ethSent(tx, wallet, treasuryAddress);
+}
+
 /**
- * ETH that `wallet` sent to the treasury in `tx`. Regular wallets send it as the
+ * ETH that `sender` sent to `recipient` in `tx`. Regular wallets send it as the
  * transaction itself; smart wallets (e.g. the Base app) send it as an internal call
  * inside a bundled/self-executed transaction, which only a trace shows. The public
  * Base RPC has no tracing, so internal calls come from Blockscout.
  * Returns null when internal calls couldn't be read (not indexed yet / API down).
  */
-export async function paidToTreasury(
+export async function ethSent(
   tx: { hash: string; from: string; to: string | null; value: bigint },
-  wallet: string,
-  treasuryAddress: string,
+  sender: string,
+  recipient: string,
 ): Promise<bigint | null> {
-  const treasury = treasuryAddress.toLowerCase();
-  if (tx.from.toLowerCase() === wallet && tx.to?.toLowerCase() === treasury) return tx.value;
+  const from = sender.toLowerCase();
+  const to = recipient.toLowerCase();
+  if (tx.from.toLowerCase() === from && tx.to?.toLowerCase() === to) return tx.value;
 
   type InternalCall = {
     type?: string;
@@ -36,8 +46,8 @@ export async function paidToTreasury(
           i.type === 'call' &&
           i.success !== false &&
           !i.error &&
-          i.from?.hash?.toLowerCase() === wallet &&
-          i.to?.hash?.toLowerCase() === treasury
+          i.from?.hash?.toLowerCase() === from &&
+          i.to?.hash?.toLowerCase() === to
         ) {
           total += BigInt(i.value ?? '0');
         }
