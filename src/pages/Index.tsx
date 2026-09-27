@@ -1,9 +1,14 @@
-import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, X, FileText } from "lucide-react";
+import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, X, FileText, ExternalLink } from "lucide-react";
+import { DEPLOYMENT_FEE_USD } from "@/lib/web3/constants";
+
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useGlobalStats } from "@/hooks/useGlobalStats";
 import { LockedPoolsTable } from "@/components/home/LockedPoolsTable";
 import { AppHeader, Logo } from "@/components/layout/AppHeader";
+
+// a live, verified locker used as the public example
+const EXAMPLE_LOCKER = "0x4357ce72925d712e3d9c366ac855c9887e4a9cec";
 
 const SectionLabel = ({ index, children }: { index: string; children: string }) => (
   <h2 className="flex items-center gap-3 font-mono text-[10px] sm:text-xs uppercase tracking-[0.2em] text-muted-foreground mb-8 sm:mb-10">
@@ -21,6 +26,7 @@ const Index = () => {
         nav={[
           { label: 'features', to: '#features', anchor: true },
           { label: 'how it works', to: '#how', anchor: true },
+          { label: 'pricing', to: '#pricing', anchor: true },
           { label: 'pools', to: '#pools', anchor: true },
           { label: 'docs', to: '/docs' },
         ]}
@@ -119,7 +125,7 @@ const Index = () => {
                 {
                   icon: DollarSign,
                   title: "claim lp fees",
-                  description: "automatically claim trading fees from locked aerodrome positions.",
+                  description: "aerodrome pays lp fees separately from the lp tokens. keep claiming them while your liquidity stays locked.",
                 },
                 {
                   icon: Lock,
@@ -250,23 +256,82 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Contract Section */}
+      {/* Pricing */}
+      <section id="pricing" className="py-12 sm:py-20 border-t border-border">
+        <div className="container px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto">
+            <SectionLabel index="05">pricing</SectionLabel>
+            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <h3 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tighter">
+                ${DEPLOYMENT_FEE_USD} flat. <span className="text-muted-foreground">no cut of your liquidity.</span>
+              </h3>
+            </div>
+
+            <div className="border border-border bg-card overflow-x-auto">
+              <table className="w-full min-w-[520px] text-left text-xs">
+                <thead className="bg-muted/40">
+                  <tr className="border-b border-border">
+                    {['', 'cost', 'claim lp fees while locked', 'getting liquidity back'].map((h) => (
+                      <th key={h} className="px-4 py-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr className="bg-foreground/[0.03]">
+                    <td className="px-4 py-3 font-semibold">aerolock</td>
+                    <td className="px-4 py-3 font-mono">${DEPLOYMENT_FEE_USD} one-time, 0% of lp</td>
+                    <td className="px-4 py-3 text-success">yes, anytime</td>
+                    <td className="px-4 py-3">30-day public notice</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-semibold">typical % locker</td>
+                    <td className="px-4 py-3 font-mono">~0.1 ETH + 1% of lp</td>
+                    <td className="px-4 py-3 text-muted-foreground">varies</td>
+                    <td className="px-4 py-3">fixed unlock date</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-semibold">burning lp</td>
+                    <td className="px-4 py-3 font-mono">gas only</td>
+                    <td className="px-4 py-3 text-destructive">no, fees are gone</td>
+                    <td className="px-4 py-3">never</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[10px] text-muted-foreground leading-relaxed">
+              percentage-locker pricing based on published fee schedules for aerodrome lp on base (aug 2026); check each provider for current terms.
+              aerodrome v2 pools pay trading fees separately from the lp tokens, so they must be claimed - aerolock lets the owner claim them while the lp stays locked.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Verification */}
       <section className="py-12 sm:py-20 border-t border-border">
         <div className="container px-4 sm:px-6">
           <div className="max-w-5xl mx-auto">
             <div className="border border-border bg-card p-5 sm:p-8">
               <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-4">
-                verified contract
+                open source &amp; verified
               </h3>
-              <p className="text-xs text-muted-foreground mb-4 font-mono break-all">
-                0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9
+              <p className="text-sm text-muted-foreground mb-5 max-w-2xl leading-relaxed">
+                every locker runs the same open-source contract, with its source verified on basescan and sourcify.
+                nothing is upgradeable and there is no platform admin key: only the locker&apos;s owner can act on it,
+                and withdrawals always require 30 days&apos; public notice.
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="h-9 text-xs px-3">
-                  view on basescan
+              <div className="flex flex-wrap gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
+                <Button asChild variant="outline" size="sm" className="h-9 text-xs px-3">
+                  <a href={`https://basescan.org/address/${EXAMPLE_LOCKER}#code`} target="_blank" rel="noopener noreferrer">
+                    example on basescan <ExternalLink className="h-3 w-3" />
+                  </a>
                 </Button>
-                <Button variant="outline" size="sm" className="h-9 text-xs px-3">
-                  audit report
+                <Button asChild variant="outline" size="sm" className="h-9 text-xs px-3">
+                  <a href={`https://repo.sourcify.dev/8453/${EXAMPLE_LOCKER}`} target="_blank" rel="noopener noreferrer">
+                    sourcify <ExternalLink className="h-3 w-3" />
+                  </a>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="h-9 text-xs px-3">
+                  <Link to="/docs#security">security details</Link>
                 </Button>
               </div>
             </div>

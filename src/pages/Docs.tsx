@@ -6,11 +6,14 @@ import { ArrowRight, Shield, Clock, DollarSign, Code, ExternalLink } from "lucid
 import { AppHeader } from "@/components/layout/AppHeader";
 import { TREASURY_ADDRESS, DEPLOYMENT_FEE_USD, TIMELOCK_DURATION } from "@/lib/web3/constants";
 
-const Docs = () => {
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <AppHeader />
+const FAQ_ITEMS = ['item-1', 'item-2', 'item-3', 'item-4', 'item-5', 'item-6', 'item-7', 'item-8'];
 
+/**
+ * The docs body. Rendered on its own at build time (scripts/prerender.mjs) so the
+ * docs are readable by crawlers; `prerender` opens every FAQ answer for that.
+ */
+export const DocsContent = ({ prerender = false }: { prerender?: boolean }) => {
+  return (
       <div className="container px-4 sm:px-6 lg:px-8 py-10 sm:py-16 max-w-4xl">
         {/* Title */}
         <div className="mb-12">
@@ -38,7 +41,7 @@ const Docs = () => {
                 <strong>pay deployment fee</strong> - send ${DEPLOYMENT_FEE_USD} worth of ETH to deploy your custom locker contract
               </li>
               <li className="text-sm">
-                <strong>lock your tokens</strong> - transfer LP tokens to your new locker contract
+                <strong>lock your tokens</strong> - lock LP tokens into your new locker contract
               </li>
               <li className="text-sm">
                 <strong>manage & claim</strong> - track your locks and claim LP fees through the dashboard
@@ -66,7 +69,7 @@ const Docs = () => {
                 </div>
                 <div className="flex items-start gap-2">
                   <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                  <span>one locker per LP token pair</span>
+                  <span>each locker holds a single aerodrome LP token</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <div className="w-1 h-1 rounded-full bg-primary mt-2" />
@@ -101,7 +104,7 @@ const Docs = () => {
             <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">LP fee claiming</h3>
               <p className="text-sm text-muted-foreground">
-                while your tokens are locked, they continue earning LP fees from aerodrome. you can claim these fees at any time without affecting your lock status.
+                aerodrome v2 pools pay trading fees separately from the LP tokens, so they have to be claimed. while your tokens are locked, the locker keeps earning those fees and you can claim them at any time without affecting your lock status.
               </p>
             </Card>
           </div>
@@ -148,9 +151,9 @@ const Docs = () => {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-3">step 4: verify & deploy</h3>
+                <h3 className="text-lg font-semibold mb-3">step 4: deploy</h3>
                 <p className="text-sm text-muted-foreground">
-                  our system verifies the payment on-chain before deploying your locker contract. once verified, your locker is deployed and you'll receive the contract address.
+                  your wallet deploys the locker contract. aerolock then checks on-chain that the deployment and payment came from your wallet and that the payment covers the fee, adds the locker to your dashboard, and submits its source code for basescan verification.
                 </p>
               </div>
             </div>
@@ -187,7 +190,7 @@ const Docs = () => {
             <Card className="p-5 sm:p-6">
               <h3 className="text-lg font-semibold mb-3">claiming LP fees</h3>
               <p className="text-sm text-muted-foreground">
-                LP fees accumulate while tokens are locked. claim them anytime through your locker dashboard without affecting your lock status. fees are distributed proportionally to all locked positions.
+                LP fees accumulate while tokens are locked. claim them anytime through your locker dashboard without affecting your lock status. fees are claimed for the whole locker at once and always go to the locker's fee receiver address.
               </p>
             </Card>
 
@@ -228,7 +231,7 @@ const Docs = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>open source and auditable</span>
+                    <span>open source, verified on basescan and sourcify</span>
                   </li>
                 </ul>
               </div>
@@ -253,11 +256,11 @@ const Docs = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>emergency timelock adds extra security layer</span>
+                    <span>withdrawals require 30 days' public notice</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="w-1 h-1 rounded-full bg-primary mt-2" />
-                    <span>no admin keys or backdoors</span>
+                    <span>no platform admin key: aerolock can't move, pause or unlock anything</span>
                   </li>
                 </ul>
               </div>
@@ -265,7 +268,7 @@ const Docs = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-3">contract verification</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  all aerolock contracts are deployed using identical bytecode. you can find verification details directly in your locker management console.
+                  all aerolock lockers are deployed from the same source code, and new lockers are submitted for basescan verification automatically. compiler settings: solidity 0.8.20, optimizer off, evm version shanghai, MIT license.
                 </p>
                 <ul className="space-y-2 text-sm text-muted-foreground mb-3">
                   <li className="flex items-start gap-2">
@@ -289,10 +292,57 @@ const Docs = () => {
           </Card>
         </section>
 
+        {/* Security */}
+        <section id="security" className="mb-12 sm:mb-16 scroll-mt-20">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
+            <Shield className="h-5 w-5" />
+            security
+          </h2>
+          <div className="grid gap-6">
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">what the locker owner can do</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
+                <li>lock LP tokens and top up existing locks</li>
+                <li>trigger a withdrawal, which starts a public 30-day countdown, and cancel it</li>
+                <li>withdraw LP only after that countdown has finished</li>
+                <li>change the fee receiver and claim LP fees</li>
+                <li>transfer ownership (the new owner must accept), or renounce it, which locks the LP permanently</li>
+              </ul>
+            </Card>
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">what nobody can do</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
+                <li>withdraw LP without the 30-day notice - not the owner, not aerolock</li>
+                <li>take the locked LP token through the token-recovery function (it's blocked for the LP token)</li>
+                <li>upgrade or change the contract - it has no proxy and no platform admin</li>
+                <li>redirect fees anywhere except the locker's fee receiver</li>
+              </ul>
+            </Card>
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">checking a lock</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                every locker has a public page at <code className="font-mono text-xs bg-muted px-1 py-0.5">aerolock.app/locked/&lt;locker address&gt;</code> showing
+                each lock's live status read from base: locked, withdrawal pending (with the date it unlocks), or withdrawable.
+                a pending withdrawal can't be hidden - it's on-chain for the full 30 days before any liquidity can leave.
+              </p>
+            </Card>
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">audit status</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                the locker contract has not had an independent third-party audit yet. its full source is public and verified on
+                basescan and sourcify, and it builds on openzeppelin's ownable2step and safeerc20. questions or findings: reach out on{' '}
+                <a href="https://x.com/aerolockvault" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-foreground">X</a>{' '}
+                or open an issue on{' '}
+                <a href="https://github.com/cyberdreadx/aero-lock-vault" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-foreground">github</a>.
+              </p>
+            </Card>
+          </div>
+        </section>
+
         {/* FAQ */}
         <section className="mb-12 sm:mb-16">
           <h2 className="text-2xl font-bold mb-6">frequently asked questions</h2>
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion type="multiple" defaultValue={prerender ? FAQ_ITEMS : []} className="w-full">
             <AccordionItem value="item-1">
               <AccordionTrigger>what happens to my LP fees while tokens are locked?</AccordionTrigger>
               <AccordionContent>
@@ -385,8 +435,14 @@ const Docs = () => {
           </Link>
         </div>
       </div>
-    </div>
   );
 };
+
+const Docs = () => (
+  <div className="min-h-screen bg-background text-foreground">
+    <AppHeader />
+    <DocsContent />
+  </div>
+);
 
 export default Docs;

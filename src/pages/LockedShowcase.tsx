@@ -9,11 +9,13 @@ import {
   useLockerLPToken,
   useLockerFeeReceiver,
   useLockerBalance,
-  useGetAllLockIds,
 } from '@/hooks/web3/useLPLocker';
 import { useTokenMetadata } from '@/hooks/web3/useERC20';
 import { formatTokenAmount } from '@/lib/web3/utils';
-import { Lock, Shield, Clock, CheckCircle2, Share2, ExternalLink, ArrowRight, Link2, MessageSquare } from 'lucide-react';
+import { Lock, Shield, Clock, CheckCircle2, Share2, ExternalLink, ArrowRight, Link2, MessageSquare, AlertTriangle, CircleDashed } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { useLockStatuses, type LockState } from '@/hooks/web3/useLockStatuses';
+import { cn } from '@/lib/utils';
 import { AppHeader } from '@/components/layout/AppHeader';
 
 export default function LockedShowcase() {
@@ -24,7 +26,7 @@ export default function LockedShowcase() {
   const { data: lpToken } = useLockerLPToken(validAddress);
   const { data: feeReceiver } = useLockerFeeReceiver(validAddress);
   const { data: lockedBalance } = useLockerBalance(validAddress);
-  const { data: lockIds } = useGetAllLockIds(validAddress);
+  const { data: lockStates, isLoading: isLoadingLocks } = useLockStatuses(validAddress);
   const { data: tokenMetadata } = useTokenMetadata(lpToken);
 
   if (!lockerAddress) {
@@ -35,13 +37,30 @@ export default function LockedShowcase() {
     );
   }
 
+  const liveLocks = (lockStates ?? []).filter((l) => l.status !== 'withdrawn');
+  const pending = liveLocks.filter((l) => l.status === 'triggered');
+  const withdrawable = liveLocks.filter((l) => l.status === 'unlocked');
+  const nextUnlock = pending
+    .map((l) => l.unlocksAt!)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  const overall: 'loading' | 'none' | 'withdrawable' | 'pending' | 'locked' = isLoadingLocks
+    ? 'loading'
+    : liveLocks.length === 0
+      ? 'none'
+      : withdrawable.length > 0
+        ? 'withdrawable'
+        : pending.length > 0
+          ? 'pending'
+          : 'locked';
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     toast({ description: '🎉 share link copied to clipboard!' });
   };
 
   const handleCopyForSocials = () => {
-    const text = `🔒 Liquidity Locked on AeroLock!\n\n${lockedBalance !== undefined && tokenMetadata ? formatTokenAmount(lockedBalance, tokenMetadata.decimals) : ''} ${tokenMetadata?.symbol || 'LP'} tokens secured\n\nVerified on Base: ${window.location.href}`;
+    const headline = overall === 'locked' ? '🔒 Liquidity Locked on AeroLock!' : '🔒 AeroLock liquidity status';
+    const text = `${headline}\n\n${lockedBalance !== undefined && tokenMetadata ? formatTokenAmount(lockedBalance, tokenMetadata.decimals) : ''} ${tokenMetadata?.symbol || 'LP'} tokens secured\n\nVerified on Base: ${window.location.href}`;
     navigator.clipboard.writeText(text);
     toast({ description: '💬 social media message copied!' });
   };
@@ -61,14 +80,9 @@ export default function LockedShowcase() {
         <div className="absolute inset-x-0 top-0 h-[480px] bg-grid mask-fade-b pointer-events-none" aria-hidden />
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <div className="space-y-6 sm:space-y-8">
-          {/* Hero Badge */}
+          {/* Status badge: reflects on-chain lock state, not just that a locker exists */}
           <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-success/10 border border-success/40">
-              <CheckCircle2 className="w-4 h-4 text-success" />
-              <span className="font-mono text-[10px] sm:text-xs font-medium text-success tracking-[0.15em]">
-                LIQUIDITY LOCKED & VERIFIED
-              </span>
-            </div>
+            <StatusBadge overall={overall} nextUnlock={nextUnlock} />
           </div>
 
           {/* Main Lock Amount */}
@@ -84,7 +98,7 @@ export default function LockedShowcase() {
             </h1>
             
             <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-              Locked in a secure smart contract on Base Network via AeroLock
+              held in an aerolock locker contract on base. any withdrawal must be announced on-chain 30 days in advance.
             </p>
           </div>
 
@@ -96,10 +110,10 @@ export default function LockedShowcase() {
                   <Shield className="w-5 h-5 " />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">security</p>
-                  <p className="text-sm font-semibold">audited contract</p>
+                  <p className="text-xs text-muted-foreground mb-1">source code</p>
+                  <p className="text-sm font-semibold">verified on basescan</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    time-locked withdrawals
+                    open source, not upgradeable
                   </p>
                 </div>
               </div>
@@ -112,9 +126,9 @@ export default function LockedShowcase() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">active locks</p>
-                  <p className="text-sm font-semibold">{lockIds?.length || 0} lock{lockIds?.length !== 1 ? 's' : ''}</p>
+                  <p className="text-sm font-semibold">{isLoadingLocks ? '...' : `${liveLocks.length} lock${liveLocks.length !== 1 ? 's' : ''}`}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    on-chain verified
+                    read live from base
                   </p>
                 </div>
               </div>
@@ -126,15 +140,31 @@ export default function LockedShowcase() {
                   <Clock className="w-5 h-5 " />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">timelock</p>
-                  <p className="text-sm font-semibold">30-day emergency delay</p>
+                  <p className="text-xs text-muted-foreground mb-1">exit rule</p>
+                  <p className="text-sm font-semibold">30-day public notice</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    extra protection
+                    withdrawals are visible on-chain before they can happen
                   </p>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Per-lock status */}
+          {liveLocks.length > 0 && (
+            <Card className="p-5 sm:p-6">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-4">locks</h2>
+              <div className="divide-y divide-border">
+                {liveLocks.map((lock) => (
+                  <LockRow
+                    key={lock.lockId}
+                    lock={lock}
+                    amount={tokenMetadata ? formatTokenAmount(lock.amount, tokenMetadata.decimals) : '...'}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Share Section */}
           <Card className="p-6 sm:p-8">
@@ -190,16 +220,6 @@ export default function LockedShowcase() {
                     <ExternalLink className="w-3 h-3" />
                   </Button>
                 </a>
-                <a
-                  href="https://github.com/your-repo/audit-report"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" size="sm" className="gap-2">
-                    audit report
-                    <ExternalLink className="w-3 h-3" />
-                  </Button>
-                </a>
               </div>
             </div>
           </Card>
@@ -251,6 +271,55 @@ export default function LockedShowcase() {
           powered by aerolock
         </Link>
       </div>
+    </div>
+  );
+}
+
+function StatusBadge({
+  overall,
+  nextUnlock,
+}: {
+  overall: 'loading' | 'none' | 'withdrawable' | 'pending' | 'locked';
+  nextUnlock?: Date;
+}) {
+  const styles = {
+    loading: { cls: 'border-border bg-muted/40 text-muted-foreground', icon: CircleDashed, text: 'reading lock status...' },
+    none: { cls: 'border-border bg-muted/40 text-muted-foreground', icon: CircleDashed, text: 'no active locks' },
+    withdrawable: { cls: 'border-destructive/50 bg-destructive/10 text-destructive', icon: AlertTriangle, text: 'withdrawal unlocked - liquidity can be removed' },
+    pending: {
+      cls: 'border-warning/50 bg-warning/10 text-warning',
+      icon: AlertTriangle,
+      text: `withdrawal pending - unlocks ${nextUnlock ? format(nextUnlock, 'MMM d, yyyy') : 'soon'}`,
+    },
+    locked: { cls: 'border-success/40 bg-success/10 text-success', icon: CheckCircle2, text: 'liquidity locked - no withdrawal pending' },
+  }[overall];
+  const Icon = styles.icon;
+  return (
+    <div className={cn('inline-flex items-center gap-2 border px-3 py-1.5 sm:px-4 sm:py-2', styles.cls)}>
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="font-mono text-[10px] sm:text-xs font-medium uppercase tracking-[0.15em]">{styles.text}</span>
+    </div>
+  );
+}
+
+function LockRow({ lock, amount }: { lock: LockState; amount: string }) {
+  const detail =
+    lock.status === 'active'
+      ? 'locked - no withdrawal pending'
+      : lock.status === 'triggered'
+        ? `withdrawal triggered - unlocks ${format(lock.unlocksAt!, 'MMM d, yyyy HH:mm')} (${formatDistanceToNow(lock.unlocksAt!, { addSuffix: true })})`
+        : 'withdrawal unlocked - can be removed now';
+  const tone =
+    lock.status === 'active' ? 'text-success' : lock.status === 'triggered' ? 'text-warning' : 'text-destructive';
+  return (
+    <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="min-w-0">
+        <p className="font-mono tabular text-sm font-medium [overflow-wrap:anywhere]">{amount}</p>
+        <p className="font-mono text-[10px] text-muted-foreground">
+          {lock.lockId.slice(0, 10)}...{lock.lockId.slice(-6)}
+        </p>
+      </div>
+      <p className={cn('text-xs sm:text-right', tone)}>{detail}</p>
     </div>
   );
 }
