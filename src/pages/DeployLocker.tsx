@@ -13,7 +13,9 @@ import { toast } from '@/hooks/use-toast';
 import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
 import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
-import { formatUnits, parseEther, isAddress, parseAbi } from 'viem';
+import { concat, encodeDeployData, formatUnits, getContractAddress, isAddress, parseAbi, parseEther, toHex } from 'viem';
+import { useQuery } from '@tanstack/react-query';
+import { baseClient } from '@/lib/web3/baseReads';
 import { useLpPositions } from '@/hooks/web3/useLpPositions';
 import { formatTokenAmount } from '@/lib/web3/utils';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
@@ -22,6 +24,8 @@ import { Check } from 'lucide-react';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
 
 const AERODROME_FACTORY_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
+// Arachnid's deterministic deployment proxy (calldata = salt ++ initcode), deployed on Base
+const CREATE2_DEPLOYER = '0x4e59b44847b379578588920cA78FbF26c0B4956C' as const;
 
 function StepBadge({ n, done }: { n: number; done?: boolean }) {
   return (
@@ -39,6 +43,8 @@ function StepBadge({ n, done }: { n: number; done?: boolean }) {
 type DeployProgress = {
   paymentHash?: `0x${string}`;
   deployHash?: `0x${string}`;
+  /** predicted address for smart-wallet (CREATE2) deploys, which have no receipt.contractAddress */
+  lockerAddress?: `0x${string}`;
   lpTokenAddress?: string;
   feeReceiverAddress?: string;
 };
@@ -110,14 +116,31 @@ export default function DeployLocker() {
   } = useWaitForTransactionReceipt({ hash: paymentHash, chainId: base.id });
 
   // Deployment transaction
-  const { deployContract, data: sentDeployHash, isPending: isDeployPending } = useDeployContract();
-  const deployHash = sentDeployHash ?? stored.deployHash;
+  const { deployContract, data: sentDeployHash, isPending: isDirectDeployPending } = useDeployContract();
+  // smart wallets (e.g. the Base app) can't send contract-creation txs, so they call a CREATE2 deployer
+  const { sendTransaction: sendDeployCall, data: sentProxyDeployHash, isPending: isProxyDeployPending } = useSendTransaction();
+  const [predictedLocker, setPredictedLocker] = useState<`0x${string}`>();
+  const isDeployPending = isDirectDeployPending || isProxyDeployPending;
+  const deployHash = sentDeployHash ?? sentProxyDeployHash ?? stored.deployHash;
   const {
     isLoading: isDeployConfirming,
     isSuccess: isDeploySuccess,
     data: receipt,
     error: deployReceiptError,
   } = useWaitForTransactionReceipt({ hash: deployHash, chainId: base.id });
+
+  const deployedLocker = receipt?.contractAddress ?? predictedLocker ?? stored.lockerAddress;
+
+  // wallets with contract code (smart accounts, EIP-7702 upgraded EOAs) can only make calls
+  const { data: isSmartWallet } = useQuery({
+    queryKey: ['is-smart-wallet', address],
+    enabled: !!address,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const code = await baseClient.getCode({ address: address! });
+      return !!code && code !== '0x';
+    },
+  });
 
   const isAdmin = isAdminWallet(address);
   const hasPaidFee = isPaymentSuccess;
@@ -184,17 +207,38 @@ export default function DeployLocker() {
     try {
       await ensureBase();
       toast({ description: 'confirm the deployment in your wallet...' });
+      const args = [validLpAddress, address, feeReceiverAddress as `0x${string}`] as const;
+      const onError = (error: Error) =>
+        toast({ description: txErrorMessage(error, 'deployment failed'), variant: 'destructive' });
+
+      if (isSmartWallet) {
+        // the locker's owner is a constructor argument, so deploying via the public
+        // CREATE2 deployer still makes this wallet the owner
+        const initCode = encodeDeployData({ abi: LP_LOCKER_CONSTRUCTOR_ABI, bytecode: LP_LOCKER_BYTECODE, args });
+        const salt = toHex(crypto.getRandomValues(new Uint8Array(32)));
+        const locker = getContractAddress({ opcode: 'CREATE2', from: CREATE2_DEPLOYER, salt, bytecode: initCode });
+        setPredictedLocker(locker);
+        sendDeployCall(
+          { to: CREATE2_DEPLOYER, data: concat([salt, initCode]), chainId: base.id },
+          {
+            onSuccess: (hash) =>
+              saveProgress(address, { deployHash: hash, lockerAddress: locker, lpTokenAddress, feeReceiverAddress }),
+            onError,
+          },
+        );
+        return;
+      }
+
       deployContract(
         {
           abi: LP_LOCKER_CONSTRUCTOR_ABI,
           bytecode: LP_LOCKER_BYTECODE,
-          args: [validLpAddress, address, feeReceiverAddress as `0x${string}`],
+          args,
           chainId: base.id,
         },
         {
           onSuccess: (hash) => saveProgress(address, { deployHash: hash, lpTokenAddress, feeReceiverAddress }),
-          onError: (error) =>
-            toast({ description: txErrorMessage(error, 'deployment failed'), variant: 'destructive' }),
+          onError,
         },
       );
     } catch (error) {
@@ -222,8 +266,8 @@ export default function DeployLocker() {
   }, [deployReceiptError]);
 
   const recordDeployment = useCallback(() => {
-    if (!address || !deployHash || !receipt?.contractAddress) return;
-    const lockerAddress = receipt.contractAddress;
+    if (!address || !deployHash || !deployedLocker) return;
+    const lockerAddress = deployedLocker;
     setSaveStatus('saving');
     setSaveError('');
     saveLocker(
@@ -253,16 +297,16 @@ export default function DeployLocker() {
         },
       },
     );
-  }, [address, deployHash, receipt, lpTokenAddress, feeReceiverAddress, paymentHash, saveLocker, navigate]);
+  }, [address, deployHash, deployedLocker, lpTokenAddress, feeReceiverAddress, paymentHash, saveLocker, navigate]);
 
   // Record the deployment exactly once per deploy transaction
   useEffect(() => {
-    if (!isDeploySuccess || !deployHash || !receipt?.contractAddress) return;
+    if (!isDeploySuccess || !deployHash || !deployedLocker) return;
     if (!paymentHash && !isAdmin) return;
     if (attemptedSave.current === deployHash) return;
     attemptedSave.current = deployHash;
     recordDeployment();
-  }, [isDeploySuccess, deployHash, receipt, paymentHash, isAdmin, recordDeployment]);
+  }, [isDeploySuccess, deployHash, deployedLocker, paymentHash, isAdmin, recordDeployment]);
 
   if (!isConnected) {
     return (
@@ -538,11 +582,11 @@ export default function DeployLocker() {
                     </Button>
                   )}
 
-                  {isDeploySuccess && receipt?.contractAddress && (
+                  {isDeploySuccess && deployedLocker && (
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                         <span className="text-success">✓ deployed at</span>
-                        <AddressDisplay address={receipt.contractAddress} />
+                        <AddressDisplay address={deployedLocker} />
                       </div>
                       {saveStatus === 'saving' && (
                         <p className="text-xs text-muted-foreground">recording your locker...</p>

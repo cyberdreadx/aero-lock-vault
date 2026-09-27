@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import { createPublicClient, http, formatEther, isAddress, isHash, parseEther } from 'https://esm.sh/viem@2.37.12';
 import { base } from 'https://esm.sh/viem@2.37.12/chains';
-import { constructorArgsFromDeployInput, runInBackground, submitLockerVerification } from '../_shared/basescan.ts';
+import { runInBackground, submitLockerVerification } from '../_shared/basescan.ts';
+import { inspectLocker, lockerConstructorArgs } from '../_shared/locker.ts';
+import { paidToTreasury } from '../_shared/payments.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,13 +47,6 @@ async function fetchEthUsd(): Promise<number | null> {
     }
   }
   return null;
-}
-
-/** constructor(address tokenContract_, address owner_, address feeReceiver_) */
-function decodeLockerArgs(deployInput: string) {
-  const args = constructorArgsFromDeployInput(deployInput);
-  const word = (i: number) => `0x${args.slice(i * 64 + 24, (i + 1) * 64)}`.toLowerCase();
-  return { tokenContract: word(0), owner: word(1), feeReceiver: word(2) };
 }
 
 serve(async (req) => {
@@ -109,25 +104,19 @@ serve(async (req) => {
       return reject('This locker is already registered to another wallet', 409);
     }
 
-    // The deployment tx must have been sent by this wallet and created this locker
-    const deployHash = deploymentTxHash as `0x${string}`;
-    const [deployTx, deployReceipt] = await Promise.all([
-      publicClient.getTransaction({ hash: deployHash }),
-      publicClient.getTransactionReceipt({ hash: deployHash }),
-    ]);
-    if (deployReceipt.status !== 'success') {
-      return reject('Deployment transaction failed');
+    // The deployment tx must have created a genuine AeroLock locker owned by this wallet.
+    // Checked via the locker's creation event and code, which works for regular and smart wallets.
+    const deployReceipt = await publicClient.getTransactionReceipt({ hash: deploymentTxHash as `0x${string}` });
+    const lockerInfo = await inspectLocker(locker, deployReceipt);
+    if (!lockerInfo.ok) {
+      return reject(lockerInfo.reason);
     }
-    if (deployTx.from.toLowerCase() !== wallet) {
-      return reject('Deployment transaction was not sent by this wallet', 403);
+    if (lockerInfo.owner !== wallet) {
+      return reject('This locker was not created for this wallet', 403);
     }
-    if (deployReceipt.contractAddress?.toLowerCase() !== locker) {
-      return reject('Deployment transaction did not create this locker');
-    }
-    const lockerArgs = decodeLockerArgs(deployTx.input);
     if (
-      lockerArgs.tokenContract !== String(lpTokenAddress).toLowerCase() ||
-      lockerArgs.feeReceiver !== String(feeReceiverAddress).toLowerCase()
+      lockerInfo.tokenContract !== String(lpTokenAddress).toLowerCase() ||
+      lockerInfo.feeReceiver !== String(feeReceiverAddress).toLowerCase()
     ) {
       return reject('LP token or fee receiver does not match the deployed locker');
     }
@@ -157,12 +146,6 @@ serve(async (req) => {
       if (!receipt || receipt.status !== 'success') {
         return reject('Payment transaction failed or not confirmed');
       }
-      if (transaction.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
-        return reject('Payment was not sent to the correct treasury address');
-      }
-      if (transaction.from.toLowerCase() !== wallet) {
-        return reject('Payment was not sent by this wallet', 403);
-      }
       if (receipt.blockNumber > deployReceipt.blockNumber) {
         return reject('Payment must be made before the locker is deployed');
       }
@@ -172,8 +155,17 @@ serve(async (req) => {
         return reject('Could not confirm the ETH price right now - please try again', 503);
       }
       const requiredWei = parseEther(((DEPLOYMENT_FEE_USD / ethUsd) * PRICE_TOLERANCE).toFixed(18));
-      paidAmount = formatEther(transaction.value);
-      if (transaction.value < requiredWei) {
+
+      // must be ETH from this wallet to the treasury (directly, or inside a smart-wallet transaction)
+      const paid = await paidToTreasury(transaction, wallet, TREASURY_ADDRESS);
+      if (paid === null) {
+        return reject("Couldn't read the payment yet - please try again in a minute", 503);
+      }
+      if (paid === 0n) {
+        return reject('No payment from this wallet to the treasury was found in that transaction', 403);
+      }
+      paidAmount = formatEther(paid);
+      if (paid < requiredWei) {
         return reject(
           `Payment too low: ${paidAmount} ETH sent, about ${formatEther(requiredWei)} ETH ($${DEPLOYMENT_FEE_USD}) required`,
         );
@@ -205,7 +197,12 @@ serve(async (req) => {
     console.log('Deployment saved successfully:', data);
 
     // Verify the new locker on Basescan without holding up the response
-    runInBackground(submitLockerVerification(lockerAddress, constructorArgsFromDeployInput(deployTx.input)));
+    runInBackground(
+      submitLockerVerification(
+        lockerAddress,
+        lockerConstructorArgs(lockerInfo.tokenContract, lockerInfo.owner, lockerInfo.feeReceiver),
+      ),
+    );
 
     return json({
       success: true,
@@ -218,7 +215,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in verify-deployment function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return json({ error: errorMessage }, 500);
+    // usually a Base RPC hiccup (rate limit, timeout); the app offers a retry
+    return json({ error: "Couldn't reach Base to verify right now - please try again in a minute" }, 503);
   }
 });
