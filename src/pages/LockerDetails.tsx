@@ -25,6 +25,7 @@ import { useLockerLocks } from '@/hooks/web3/useUserLocks';
 import { useTokenMetadata, useTokenBalance, useTokenAllowance, useERC20 } from '@/hooks/web3/useERC20';
 import { formatTokenAmount, sanitizeAmountInput } from '@/lib/web3/utils';
 import { LockCard } from '@/components/web3/LockCard';
+import { useTokenKind } from '@/hooks/web3/useTokenKind';
 import { ArrowLeft, Copy, ExternalLink, Github, Share2 } from 'lucide-react';
 import sourceCode from '@/assets/locker-source.sol?raw';
 
@@ -54,6 +55,9 @@ export default function LockerDetails() {
   const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(lpToken, validAddress);
 
   const locker = useLPLocker(validAddress);
+  const { data: lockKind } = useTokenKind(lpToken);
+  // plain-token lockers have no Aerodrome fees to claim
+  const isTokenLock = lockKind === 'token';
   const token = useERC20(lpToken);
 
   if (!isConnected) {
@@ -170,7 +174,7 @@ export default function LockerDetails() {
     setIsPending(true);
     try {
       await locker.withdrawLP(lockId, amount);
-      toast({ description: 'lp tokens withdrawn!' });
+      toast({ description: 'tokens withdrawn!' });
       refetchLocks();
     } catch (error: any) {
       toast({ description: error.message || 'failed to withdraw', variant: 'destructive' });
@@ -291,7 +295,7 @@ export default function LockerDetails() {
               <p className="font-mono tabular text-lg sm:text-xl font-medium truncate">{balanceLabel}</p>
             </div>
             <div className="bg-card p-4 sm:p-5 min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">lp token</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{isTokenLock ? 'token' : 'lp token'}</p>
               {lpToken && <AddressDisplay address={lpToken} showLink={false} />}
             </div>
             <div className="bg-card p-4 sm:p-5 min-w-0">
@@ -299,8 +303,12 @@ export default function LockerDetails() {
               {owner && <AddressDisplay address={owner} showLink={false} />}
             </div>
             <div className="col-span-2 lg:col-span-1 bg-card p-4 sm:p-5 min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">fee receiver</p>
-              {feeReceiver && <AddressDisplay address={feeReceiver} showLink={false} />}
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{isTokenLock ? 'lock type' : 'fee receiver'}</p>
+              {isTokenLock ? (
+                <p className="text-xs leading-8 sm:leading-6">token lock · 30-day notice</p>
+              ) : (
+                feeReceiver && <AddressDisplay address={feeReceiver} showLink={false} />
+              )}
             </div>
           </div>
 
@@ -475,6 +483,7 @@ export default function LockerDetails() {
                       </p>
                     </div>
 
+                    {!isTokenLock && (
                     <div>
                       <Label className="mb-1.5 block text-xs">change fee receiver</Label>
                       <div className="flex flex-col gap-2 sm:flex-row">
@@ -497,6 +506,7 @@ export default function LockerDetails() {
                         update the address that receives claimed fees
                       </p>
                     </div>
+                    )}
                   </div>
                 </Card>
               )}
@@ -539,6 +549,7 @@ export default function LockerDetails() {
                         onWithdraw={handleWithdraw}
                         onClaimFees={handleClaimFees}
                         isPending={isPending}
+                        isTokenLock={isTokenLock}
                       />
                     ))}
                   </div>

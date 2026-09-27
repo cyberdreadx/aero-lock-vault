@@ -8,7 +8,14 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
 import { PageHeading } from '@/components/layout/PageHeading';
 import { formatDistanceToNow } from 'date-fns';
+import { useTokenKind } from '@/hooks/web3/useTokenKind';
 import { ArrowRight, Plus, RefreshCw, Vault } from 'lucide-react';
+
+// "· lp" / "· token" next to each locker
+function LockerKind({ token }: { token: string }) {
+  const { data: kind } = useTokenKind(token);
+  return kind ? <span className="text-foreground">· {kind === 'lp' ? 'lp' : 'token'}</span> : null;
+}
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -82,7 +89,9 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 space-y-1">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">locker contract</p>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                          locker contract <LockerKind token={locker.lp_token_address} />
+                        </p>
                         <AddressDisplay address={locker.locker_address as `0x${string}`} />
                       </div>
                       <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
@@ -93,7 +102,7 @@ export default function Dashboard() {
 
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">lp token</p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">token</p>
                         <AddressDisplay address={locker.lp_token_address as `0x${string}`} showLink={false} />
                       </div>
                       <div>

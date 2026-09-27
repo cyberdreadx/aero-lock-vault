@@ -25,6 +25,8 @@ interface LockCardProps {
   onWithdraw: (lockId: string, amount: bigint) => void;
   onClaimFees: (lockId: string) => void;
   isPending: boolean;
+  /** plain-token lock: there are no Aerodrome fees to show or claim */
+  isTokenLock?: boolean;
 }
 
 export function LockCard({
@@ -35,6 +37,7 @@ export function LockCard({
   onWithdraw,
   onClaimFees,
   isPending,
+  isTokenLock = false,
 }: LockCardProps) {
   const { address } = useAccount();
   const { data: lockData } = useGetLockInfo(lockerAddress, lockId);
@@ -132,7 +135,7 @@ export function LockCard({
           </div>
         </div>
 
-        {totalFees && (
+        {!isTokenLock && totalFees && (
           <div className="pt-3 border-t">
             <p className="text-[10px] text-muted-foreground mb-2">total fees earned</p>
             <div className="space-y-1 text-xs">
@@ -152,7 +155,7 @@ export function LockCard({
           </div>
         )}
 
-        {claimableFees && (
+        {!isTokenLock && claimableFees && (
           <div className="pt-3 border-t">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] text-muted-foreground">claimable now</p>
@@ -219,15 +222,17 @@ export function LockCard({
                 withdraw
               </Button>
             )}
-            <Button 
-              size="sm" 
-              variant="secondary"
-              className="text-xs"
-              onClick={() => onClaimFees(lock.lockId)}
-              disabled={isPending}
-            >
-              claim fees
-            </Button>
+            {!isTokenLock && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="text-xs"
+                onClick={() => onClaimFees(lock.lockId)}
+                disabled={isPending}
+              >
+                claim fees
+              </Button>
+            )}
           </div>
         )}
       </div>

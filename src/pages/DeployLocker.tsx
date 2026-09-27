@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useDeployContract, useSendTransaction, useSwitchChain } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -17,6 +17,9 @@ import { concat, encodeDeployData, formatUnits, getContractAddress, isAddress, p
 import { useQuery } from '@tanstack/react-query';
 import { baseClient } from '@/lib/web3/baseReads';
 import { useLpPositions } from '@/hooks/web3/useLpPositions';
+import { useWalletTokens } from '@/hooks/web3/useWalletTokens';
+import type { LockKind } from '@/hooks/web3/useTokenKind';
+import { checkTransferTax } from '@/lib/web3/transferTax';
 import { formatTokenAmount } from '@/lib/web3/utils';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
 import { AERODROME, DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
@@ -90,6 +93,17 @@ export default function DeployLocker() {
   const [lpTokenAddress, setLpTokenAddress] = useState<string>('');
   const [feeReceiverAddress, setFeeReceiverAddress] = useState<string>('');
   const [showManualLp, setShowManualLp] = useState(false);
+  const [tokenQuery, setTokenQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // "lp": Aerodrome LP (fees claimable). "token": any other ERC-20, same notice-based lock.
+  const kind: LockKind = searchParams.get('type') === 'token' ? 'token' : 'lp';
+  const switchKind = (next: LockKind) => {
+    if (next === kind) return;
+    setSearchParams(next === 'token' ? { type: 'token' } : {}, { replace: true });
+    setLpTokenAddress('');
+    setShowManualLp(false);
+    setTokenQuery('');
+  };
   const [stored, setStored] = useState<DeployProgress>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string>('');
@@ -189,8 +203,43 @@ export default function DeployLocker() {
     chainId: base.id,
     query: { enabled: !!validLpAddress },
   });
-  const configReady = !!(isValidLpAddress && isValidFeeAddress && tokenMetadata && isAerodromePool === true);
   const { data: tokenBalance } = useTokenBalance(validLpAddress);
+  const {
+    tokens: walletTokens,
+    isLoading: isLoadingTokens,
+    isError: isTokensError,
+    refetch: refetchTokens,
+  } = useWalletTokens(address, kind === 'token');
+  const visibleTokens = walletTokens.filter((t) => {
+    const q = tokenQuery.trim().toLowerCase();
+    return !q || t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.address.toLowerCase() === q;
+  });
+
+  // Tokens that take a fee on transfer (or block transfers) can't be locked correctly:
+  // the locker records the amount sent, not the amount received. Simulated, nothing is sent.
+  const { data: transferCheck, isLoading: isCheckingTransfer } = useQuery({
+    queryKey: ['transfer-check', validLpAddress, address],
+    enabled: kind === 'token' && !!validLpAddress && !!address && isAerodromePool === false && !!tokenBalance,
+    staleTime: 60_000,
+    queryFn: () => checkTransferTax(validLpAddress!, address!, tokenBalance! / 100n || tokenBalance!),
+  });
+
+  const configReady =
+    kind === 'lp'
+      ? !!(isValidLpAddress && isValidFeeAddress && tokenMetadata && isAerodromePool === true)
+      : !!(isValidLpAddress && tokenMetadata && isAerodromePool === false && tokenBalance && transferCheck?.ok);
+
+  const transferProblem =
+    transferCheck && transferCheck.ok === false
+      ? transferCheck.reason === 'taxed'
+        ? `this token takes a ${transferCheck.taxPercent}% fee on transfers. the locker records the amount you send, not the amount that arrives, so taxed tokens can't be locked correctly.`
+        : "this token blocks transfers from your wallet right now (trading limits, a blacklist, or it can't be transferred), so it can't be locked."
+      : null;
+
+  // token locks have no LP fees, so fees (if any) just point at the owner
+  useEffect(() => {
+    if (kind === 'token' && address) setFeeReceiverAddress(address);
+  }, [kind, address]);
   const { data: ethPrice, isLoading: isPriceLoading, isError: isPriceError, refetch: refetchPrice } = useEthPrice();
 
   const deploymentFeeEth = ethPrice ? calculateEthAmount(DEPLOYMENT_FEE_USD, ethPrice) : '0';
@@ -349,9 +398,36 @@ export default function DeployLocker() {
           <div className="max-w-xl mx-auto space-y-6">
             <PageHeading
               eyebrow="new locker"
-              title="deploy lp locker"
-              description="deploy your own locker contract for any aerodrome lp token"
+              title={kind === 'lp' ? 'deploy lp locker' : 'deploy token locker'}
+              description={
+                kind === 'lp'
+                  ? 'lock aerodrome lp and keep claiming its trading fees'
+                  : 'lock team or treasury tokens. withdrawals need 30 days of public on-chain notice.'
+              }
             />
+
+            {/* What to lock */}
+            <div className="grid grid-cols-2 border border-border" role="tablist" aria-label="lock type">
+              {([
+                ['lp', 'lp lock', 'aerodrome liquidity'],
+                ['token', 'token lock', 'team & treasury tokens'],
+              ] as const).map(([value, label, hint]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={kind === value}
+                  onClick={() => switchKind(value)}
+                  className={cn(
+                    'px-4 py-3 text-left transition-colors',
+                    kind === value ? 'bg-foreground text-background' : 'hover:bg-muted/40',
+                  )}
+                >
+                  <span className="block text-sm font-semibold tracking-tight">{label}</span>
+                  <span className={cn('block text-[10px]', kind === value ? 'text-background/70' : 'text-muted-foreground')}>{hint}</span>
+                </button>
+              ))}
+            </div>
 
             {/* Step 1: Configuration */}
             <div className="border border-border bg-card p-5 sm:p-6">
@@ -360,12 +436,14 @@ export default function DeployLocker() {
                 <div className="flex-1">
                   <h2 className="text-sm font-semibold tracking-tight mb-1">configure locker</h2>
                   <p className="text-[10px] text-muted-foreground">
-                    set up your locker parameters and validate your pool
+                    {kind === 'lp' ? 'set up your locker parameters and validate your pool' : 'pick the token to lock'}
                   </p>
                 </div>
               </div>
 
               <div className="sm:pl-10 space-y-4">
+                {kind === 'lp' ? (
+                  <>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <Label className="text-xs">your aerodrome lp positions</Label>
@@ -413,13 +491,13 @@ export default function DeployLocker() {
                                 {pos.stable ? 'stable' : 'volatile'} · {pos.address.slice(0, 6)}...{pos.address.slice(-4)}
                               </p>
                             </div>
-                            <div className="flex shrink-0 items-center gap-3">
-                              <span className="font-mono tabular text-xs text-muted-foreground">
+                            <div className="flex min-w-0 max-w-[55%] items-center gap-3">
+                              <span className="min-w-0 truncate font-mono tabular text-xs text-muted-foreground">
                                 {formatTokenAmount(pos.balance, pos.decimals)}
                               </span>
                               <span
                                 className={cn(
-                                  'flex h-4 w-4 items-center justify-center rounded-full border',
+                                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
                                   selected ? 'border-foreground bg-foreground text-background' : 'border-muted-foreground/50',
                                 )}
                                 aria-hidden
@@ -473,6 +551,150 @@ export default function DeployLocker() {
                     </p>
                   )}
                 </div>
+                  </>
+                ) : (
+                  <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs">tokens in your wallet</Label>
+                    <button
+                      type="button"
+                      onClick={refetchTokens}
+                      className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    >
+                      refresh
+                    </button>
+                  </div>
+
+                  {walletTokens.length > 6 && (
+                    <Input
+                      type="search"
+                      placeholder="search by name, symbol or address"
+                      value={tokenQuery}
+                      onChange={(e) => setTokenQuery(e.target.value)}
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  )}
+
+                  {isLoadingTokens && (
+                    <div className="space-y-2">
+                      {[0, 1].map((i) => (
+                        <div key={i} className="h-14 border border-border bg-muted/30 animate-pulse" />
+                      ))}
+                    </div>
+                  )}
+
+                  {!isLoadingTokens && visibleTokens.length > 0 && (
+                    <div className="space-y-2" role="radiogroup" aria-label="tokens">
+                      {visibleTokens.slice(0, 6).map((t) => {
+                        const selected = lpTokenAddress.toLowerCase() === t.address.toLowerCase();
+                        return (
+                          <button
+                            key={t.address}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => {
+                              setLpTokenAddress(t.address);
+                              setShowManualLp(false);
+                            }}
+                            className={cn(
+                              'flex w-full items-center justify-between gap-3 border p-3 text-left transition-colors',
+                              selected ? 'border-foreground bg-foreground/5' : 'border-border hover:border-foreground/40 hover:bg-muted/40',
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{t.symbol || t.name}</p>
+                              <p className="truncate font-mono text-[10px] text-muted-foreground">
+                                {t.name} · {t.address.slice(0, 6)}...{t.address.slice(-4)}
+                              </p>
+                            </div>
+                            <div className="flex min-w-0 max-w-[55%] items-center gap-3">
+                              <span className="min-w-0 truncate font-mono tabular text-xs text-muted-foreground">
+                                {formatTokenAmount(t.balance, t.decimals)}
+                              </span>
+                              <span
+                                className={cn(
+                                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                                  selected ? 'border-foreground bg-foreground text-background' : 'border-muted-foreground/50',
+                                )}
+                                aria-hidden
+                              >
+                                {selected && <Check className="h-3 w-3" />}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {visibleTokens.length > 6 && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {visibleTokens.length - 6} more - search to narrow it down
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {!isLoadingTokens && visibleTokens.length === 0 && (
+                    <p className="border border-dashed border-border p-3 text-[11px] leading-relaxed text-muted-foreground">
+                      {isTokensError
+                        ? "couldn't look up your tokens right now - paste the token address below instead."
+                        : tokenQuery
+                          ? 'no tokens match that search. you can also paste the token address below.'
+                          : 'no tokens found in this wallet. paste the token address below.'}
+                    </p>
+                  )}
+
+                  {!showManualLp && visibleTokens.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowManualLp(true)}
+                      className="text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      or paste a token address
+                    </button>
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <Label htmlFor="lpToken" className="text-xs">token address</Label>
+                      <Input
+                        id="lpToken"
+                        type="text"
+                        placeholder="0x..."
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        value={lpTokenAddress}
+                        onChange={(e) => setLpTokenAddress(e.target.value.trim())}
+                        className="font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {isValidLpAddress && isAerodromePool === true && (
+                    <p className="text-[11px] text-warning">
+                      this is aerodrome lp.{' '}
+                      <button type="button" onClick={() => switchKind('lp')} className="underline underline-offset-4">
+                        use an lp lock
+                      </button>{' '}
+                      to keep claiming its trading fees.
+                    </p>
+                  )}
+                  {isValidLpAddress && isAerodromePool === false && tokenBalance === 0n && (
+                    <p className="text-[11px] text-destructive">this wallet doesn&apos;t hold any of this token.</p>
+                  )}
+                  {isCheckingTransfer && (
+                    <p className="text-[11px] text-muted-foreground">checking the token for transfer fees...</p>
+                  )}
+                  {transferProblem && (
+                    <p className="text-[11px] text-destructive leading-relaxed">{transferProblem}</p>
+                  )}
+                </div>
+
+                  </>
+                )}
 
                 {isValidLpAddress && tokenMetadata && (
                   <div className="border border-border bg-muted/30 p-3 space-y-2">
@@ -496,6 +718,7 @@ export default function DeployLocker() {
                   </div>
                 )}
 
+                {kind === 'lp' && (
                 <div className="space-y-2">
                   <Label htmlFor="feeReceiver" className="text-xs">fee receiver address</Label>
                   <Input
@@ -514,6 +737,7 @@ export default function DeployLocker() {
                     address that will receive claimed lp fees (usually your wallet)
                   </p>
                 </div>
+                )}
               </div>
             </div>
 

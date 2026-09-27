@@ -292,6 +292,41 @@ export const DocsContent = ({ prerender = false }: { prerender?: boolean }) => {
           </Card>
         </section>
 
+        {/* Token locks */}
+        <section id="token-locks" className="mb-12 sm:mb-16 scroll-mt-20">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">
+            <Clock className="h-5 w-5" />
+            token locks
+          </h2>
+          <div className="grid gap-6">
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">lock any base token</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                besides aerodrome LP, you can lock plain tokens - team allocations, treasury or marketing wallets - to show holders
+                they can't be dumped without warning. token locks use the same locker contract and the same rule as LP locks:
+                tokens stay locked until the owner triggers a withdrawal, and then a public {TIMELOCK_DURATION / (24 * 60 * 60)}-day
+                countdown runs before anything can move. the countdown is shown live on the lock's public page.
+              </p>
+            </Card>
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">how it differs from dated locks</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                there's no fixed unlock date or vesting schedule. the owner can give notice at any time, and holders get
+                {' '}{TIMELOCK_DURATION / (24 * 60 * 60)} days' warning. if you need a lock that can't end before a set date, this isn't that product.
+              </p>
+            </Card>
+            <Card className="p-5 sm:p-6">
+              <h3 className="text-lg font-semibold mb-3">tokens that can't be locked</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
+                <li>tokens that take a fee on transfers - the locker records the amount sent, not the amount received</li>
+                <li>tokens whose transfers are blocked or restricted for your wallet</li>
+                <li>aerodrome LP - use an LP lock instead, so you can keep claiming its fees</li>
+              </ul>
+              <p className="mt-3 text-sm text-muted-foreground">the app checks for all three before you deploy, by simulating a transfer - nothing is sent.</p>
+            </Card>
+          </div>
+        </section>
+
         {/* Security */}
         <section id="security" className="mb-12 sm:mb-16 scroll-mt-20">
           <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2 tracking-tight">

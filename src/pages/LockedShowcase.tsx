@@ -17,6 +17,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { useLockStatuses, type LockState } from '@/hooks/web3/useLockStatuses';
 import { cn } from '@/lib/utils';
 import { buildShareText, xShareUrl } from '@/lib/share';
+import { useTokenKind } from '@/hooks/web3/useTokenKind';
 
 // X's logo (lucide only ships the old bird / a generic "x")
 const XLogo = ({ className }: { className?: string }) => (
@@ -36,6 +37,9 @@ export default function LockedShowcase() {
   const { data: lockedBalance } = useLockerBalance(validAddress);
   const { data: lockStates, isLoading: isLoadingLocks } = useLockStatuses(validAddress);
   const { data: tokenMetadata } = useTokenMetadata(lpToken);
+  const { data: lockKind } = useTokenKind(lpToken);
+  const isTokenLock = lockKind === 'token';
+  const what = isTokenLock ? 'tokens' : 'liquidity';
 
   if (!lockerAddress) {
     return (
@@ -69,6 +73,7 @@ export default function LockedShowcase() {
   const shareText = buildShareText({
     status: overall === 'loading' ? 'none' : overall === 'withdrawable' ? 'withdrawable' : overall,
     lpSymbol: tokenMetadata?.symbol,
+    kind: lockKind ?? 'lp',
     amount: lockedBalance !== undefined && tokenMetadata ? formatTokenAmount(lockedBalance, tokenMetadata.decimals) : undefined,
     unlocksAt: nextUnlock,
   });
@@ -99,7 +104,7 @@ export default function LockedShowcase() {
         <div className="space-y-6 sm:space-y-8">
           {/* Status badge: reflects on-chain lock state, not just that a locker exists */}
           <div className="flex justify-center">
-            <StatusBadge overall={overall} nextUnlock={nextUnlock} />
+            <StatusBadge overall={overall} nextUnlock={nextUnlock} what={what} />
           </div>
 
           {/* Main Lock Amount */}
@@ -189,7 +194,7 @@ export default function LockedShowcase() {
               <Share2 className="w-6 h-6 mx-auto" />
               <h2 className="text-lg font-semibold">share this proof with your community</h2>
               <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                build trust by showing verifiable on-chain proof of locked liquidity
+                build trust by showing verifiable on-chain proof of locked {what}
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -284,7 +289,7 @@ export default function LockedShowcase() {
           {/* CTA Footer */}
           <div className="text-center pt-8 space-y-4">
             <p className="text-xs text-muted-foreground">
-              want to lock your own liquidity?
+              want to lock your own liquidity or tokens?
             </p>
             <Link to="/deploy">
               <Button size="lg" className="gap-2 w-full sm:w-auto">
@@ -310,20 +315,22 @@ export default function LockedShowcase() {
 function StatusBadge({
   overall,
   nextUnlock,
+  what,
 }: {
+  what: 'tokens' | 'liquidity';
   overall: 'loading' | 'none' | 'withdrawable' | 'pending' | 'locked';
   nextUnlock?: Date;
 }) {
   const styles = {
     loading: { cls: 'border-border bg-muted/40 text-muted-foreground', icon: CircleDashed, text: 'reading lock status...' },
     none: { cls: 'border-border bg-muted/40 text-muted-foreground', icon: CircleDashed, text: 'no active locks' },
-    withdrawable: { cls: 'border-destructive/50 bg-destructive/10 text-destructive', icon: AlertTriangle, text: 'withdrawal unlocked - liquidity can be removed' },
+    withdrawable: { cls: 'border-destructive/50 bg-destructive/10 text-destructive', icon: AlertTriangle, text: `withdrawal unlocked - ${what} can be removed` },
     pending: {
       cls: 'border-warning/50 bg-warning/10 text-warning',
       icon: AlertTriangle,
       text: `withdrawal pending - unlocks ${nextUnlock ? format(nextUnlock, 'MMM d, yyyy') : 'soon'}`,
     },
-    locked: { cls: 'border-success/40 bg-success/10 text-success', icon: CheckCircle2, text: 'liquidity locked - no withdrawal pending' },
+    locked: { cls: 'border-success/40 bg-success/10 text-success', icon: CheckCircle2, text: `${what} locked - no withdrawal pending` },
   }[overall];
   const Icon = styles.icon;
   return (

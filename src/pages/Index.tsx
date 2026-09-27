@@ -27,6 +27,7 @@ const Index = () => {
           { label: 'features', to: '#features', anchor: true },
           { label: 'how it works', to: '#how', anchor: true },
           { label: 'pricing', to: '#pricing', anchor: true },
+          { label: 'lock tokens', to: '/deploy?type=token' },
           { label: 'pools', to: '#pools', anchor: true },
           { label: 'docs', to: '/docs' },
         ]}
@@ -95,7 +96,7 @@ const Index = () => {
       <section id="pools" className="py-12 sm:py-20 border-t border-border">
         <div className="container px-4 sm:px-6">
           <div className="max-w-5xl mx-auto">
-            <SectionLabel index="01">locked pools</SectionLabel>
+            <SectionLabel index="01">live lockers</SectionLabel>
             {isLoading ? (
               <div className="border border-border divide-y divide-border">
                 {[0, 1, 2].map((i) => (
@@ -129,8 +130,8 @@ const Index = () => {
                 },
                 {
                   icon: Lock,
-                  title: "multi-lock",
-                  description: "create unlimited locks with different parameters per position.",
+                  title: "token locks",
+                  description: "lock team or treasury tokens too - same 30-day public notice before anything can move.",
                 },
                 {
                   icon: TrendingUp,
@@ -279,7 +280,7 @@ const Index = () => {
                 <tbody className="divide-y divide-border">
                   <tr className="bg-foreground/[0.03]">
                     <td className="px-4 py-3 font-semibold">aerolock</td>
-                    <td className="px-4 py-3 font-mono">${DEPLOYMENT_FEE_USD} one-time, 0% of lp</td>
+                    <td className="px-4 py-3 font-mono">${DEPLOYMENT_FEE_USD} per locker, 0% cut</td>
                     <td className="px-4 py-3 text-success">yes, anytime</td>
                     <td className="px-4 py-3">30-day public notice</td>
                   </tr>
