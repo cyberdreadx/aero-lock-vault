@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
-import { createPublicClient, http, formatEther } from 'https://esm.sh/viem@2.37.12';
+import { createPublicClient, http, formatEther, isAddress, isHash, parseEther } from 'https://esm.sh/viem@2.37.12';
 import { base } from 'https://esm.sh/viem@2.37.12/chains';
 import { constructorArgsFromDeployInput, runInBackground, submitLockerVerification } from '../_shared/basescan.ts';
 
@@ -11,10 +11,48 @@ const corsHeaders = {
 
 const TREASURY_ADDRESS = '0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e';
 const DEPLOYMENT_FEE_USD = 75;
-const MIN_ETH_AMOUNT = '0.001'; // Minimum acceptable payment (adjust based on price volatility)
+// ETH can move between paying and saving, and price feeds differ slightly
+const PRICE_TOLERANCE = 0.9;
 
 // Wallets allowed to deploy without paying the fee
 const ADMIN_WALLETS = [TREASURY_ADDRESS.toLowerCase()];
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+const reject = (error: string, status = 400) => {
+  console.error('Rejected:', error);
+  return json({ error }, status);
+};
+
+async function fetchEthUsd(): Promise<number | null> {
+  const sources: Array<() => Promise<number>> = [
+    async () => {
+      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      return Number((await res.json())?.ethereum?.usd);
+    },
+    async () => {
+      const res = await fetch('https://api.coinbase.com/v2/prices/ETH-USD/spot');
+      return Number((await res.json())?.data?.amount);
+    },
+  ];
+  for (const source of sources) {
+    try {
+      const price = await source();
+      if (Number.isFinite(price) && price > 0) return price;
+    } catch (error) {
+      console.warn('ETH price source failed', error);
+    }
+  }
+  return null;
+}
+
+/** constructor(address tokenContract_, address owner_, address feeReceiver_) */
+function decodeLockerArgs(deployInput: string) {
+  const args = constructorArgsFromDeployInput(deployInput);
+  const word = (i: number) => `0x${args.slice(i * 64 + 24, (i + 1) * 64)}`.toLowerCase();
+  return { tokenContract: word(0), owner: word(1), feeReceiver: word(2) };
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -23,115 +61,126 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      paymentTxHash, 
-      lockerAddress, 
-      lpTokenAddress, 
+    const {
+      paymentTxHash,
+      lockerAddress,
+      lpTokenAddress,
       feeReceiverAddress,
       deploymentTxHash,
-      walletAddress 
+      walletAddress
     } = await req.json();
 
-    console.log('Verifying deployment:', { 
-      paymentTxHash, 
-      lockerAddress, 
-      walletAddress 
-    });
+    console.log('Verifying deployment:', { paymentTxHash, lockerAddress, walletAddress });
 
-    const isAdmin = ADMIN_WALLETS.includes(String(walletAddress).toLowerCase());
+    const wallet = String(walletAddress ?? '').toLowerCase();
+    const isAdmin = ADMIN_WALLETS.includes(wallet);
 
     // Validate inputs (admins may deploy without a payment transaction)
     if (!lockerAddress || !lpTokenAddress || !feeReceiverAddress || !deploymentTxHash || !walletAddress || (!isAdmin && !paymentTxHash)) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return reject('Missing required fields');
+    }
+    if (![lockerAddress, lpTokenAddress, feeReceiverAddress, walletAddress].every((a) => isAddress(a, { strict: false }))) {
+      return reject('Invalid address');
+    }
+    if (!isHash(deploymentTxHash) || (paymentTxHash && !isHash(paymentTxHash))) {
+      return reject('Invalid transaction hash');
     }
 
-    // Create Base chain client
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http()
-    });
+    const locker = String(lockerAddress).toLowerCase();
+    const publicClient = createPublicClient({ chain: base, transport: http() });
 
-    let paidAmount = '0';
-
-    if (isAdmin) {
-      // Confirm the deployment transaction was actually sent by the admin wallet
-      const deployTx = await publicClient.getTransaction({
-        hash: deploymentTxHash as `0x${string}`
-      });
-
-      if (!deployTx || deployTx.from.toLowerCase() !== String(walletAddress).toLowerCase()) {
-        console.error('Admin bypass rejected: deployment tx sender mismatch');
-        return new Response(
-          JSON.stringify({ error: 'Deployment transaction was not sent by this wallet' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Admin wallet verified - deployment fee waived');
-    } else {
-      // Verify payment transaction on-chain
-      console.log('Fetching transaction:', paymentTxHash);
-      const transaction = await publicClient.getTransaction({
-        hash: paymentTxHash as `0x${string}`
-      });
-
-      if (!transaction) {
-        console.error('Transaction not found');
-        return new Response(
-          JSON.stringify({ error: 'Payment transaction not found on chain' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Verify transaction was successful
-      const receipt = await publicClient.getTransactionReceipt({
-        hash: paymentTxHash as `0x${string}`
-      });
-
-      if (!receipt || receipt.status !== 'success') {
-        console.error('Transaction failed or not confirmed:', receipt?.status);
-        return new Response(
-          JSON.stringify({ error: 'Payment transaction failed or not confirmed' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Verify payment went to treasury
-      if (transaction.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
-        console.error('Payment sent to wrong address:', transaction.to);
-        return new Response(
-          JSON.stringify({ error: 'Payment was not sent to the correct treasury address' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Verify payment amount (minimum threshold to account for price fluctuations)
-      paidAmount = formatEther(transaction.value);
-      if (parseFloat(paidAmount) < parseFloat(MIN_ETH_AMOUNT)) {
-        console.error('Payment amount too low:', paidAmount);
-        return new Response(
-          JSON.stringify({ error: `Payment amount too low. Minimum ${MIN_ETH_AMOUNT} ETH required` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Payment verified successfully:', paidAmount, 'ETH');
-    }
-
-    // Payment verified - save to database
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
+
+    // Already recorded? Retrying the same save is fine; claiming someone else's locker isn't.
+    const { data: existing, error: existingError } = await supabaseClient
+      .from('deployed_lockers')
+      .select('*')
+      .ilike('locker_address', locker)
+      .maybeSingle();
+    if (existingError) return reject('Lookup failed', 500);
+    if (existing) {
+      if (String(existing.wallet_address).toLowerCase() === wallet) {
+        return json({ success: true, data: existing, alreadyRecorded: true });
+      }
+      return reject('This locker is already registered to another wallet', 409);
+    }
+
+    // The deployment tx must have been sent by this wallet and created this locker
+    const deployHash = deploymentTxHash as `0x${string}`;
+    const [deployTx, deployReceipt] = await Promise.all([
+      publicClient.getTransaction({ hash: deployHash }),
+      publicClient.getTransactionReceipt({ hash: deployHash }),
+    ]);
+    if (deployReceipt.status !== 'success') {
+      return reject('Deployment transaction failed');
+    }
+    if (deployTx.from.toLowerCase() !== wallet) {
+      return reject('Deployment transaction was not sent by this wallet', 403);
+    }
+    if (deployReceipt.contractAddress?.toLowerCase() !== locker) {
+      return reject('Deployment transaction did not create this locker');
+    }
+    const lockerArgs = decodeLockerArgs(deployTx.input);
+    if (
+      lockerArgs.tokenContract !== String(lpTokenAddress).toLowerCase() ||
+      lockerArgs.feeReceiver !== String(feeReceiverAddress).toLowerCase()
+    ) {
+      return reject('LP token or fee receiver does not match the deployed locker');
+    }
+
+    let paidAmount = '0';
+    let paymentHash: string | null = null;
+
+    if (isAdmin) {
+      console.log('Admin wallet verified - deployment fee waived');
+    } else {
+      paymentHash = String(paymentTxHash).toLowerCase();
+
+      // Each payment pays for one locker
+      const { data: used, error: usedError } = await supabaseClient
+        .from('deployed_lockers')
+        .select('locker_address')
+        .eq('payment_tx_hash', paymentHash)
+        .maybeSingle();
+      if (usedError) return reject('Lookup failed', 500);
+      if (used) return reject('This payment has already been used for another locker', 409);
+
+      const [transaction, receipt] = await Promise.all([
+        publicClient.getTransaction({ hash: paymentHash as `0x${string}` }),
+        publicClient.getTransactionReceipt({ hash: paymentHash as `0x${string}` }),
+      ]);
+
+      if (!receipt || receipt.status !== 'success') {
+        return reject('Payment transaction failed or not confirmed');
+      }
+      if (transaction.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
+        return reject('Payment was not sent to the correct treasury address');
+      }
+      if (transaction.from.toLowerCase() !== wallet) {
+        return reject('Payment was not sent by this wallet', 403);
+      }
+      if (receipt.blockNumber > deployReceipt.blockNumber) {
+        return reject('Payment must be made before the locker is deployed');
+      }
+
+      const ethUsd = await fetchEthUsd();
+      if (!ethUsd) {
+        return reject('Could not confirm the ETH price right now - please try again', 503);
+      }
+      const requiredWei = parseEther(((DEPLOYMENT_FEE_USD / ethUsd) * PRICE_TOLERANCE).toFixed(18));
+      paidAmount = formatEther(transaction.value);
+      if (transaction.value < requiredWei) {
+        return reject(
+          `Payment too low: ${paidAmount} ETH sent, about ${formatEther(requiredWei)} ETH ($${DEPLOYMENT_FEE_USD}) required`,
+        );
+      }
+
+      console.log('Payment verified successfully:', paidAmount, 'ETH at', ethUsd, 'USD/ETH');
+    }
 
     const { data, error } = await supabaseClient
       .from('deployed_lockers')
@@ -140,53 +189,36 @@ serve(async (req) => {
         lp_token_address: lpTokenAddress,
         fee_receiver_address: feeReceiverAddress,
         deployment_tx_hash: deploymentTxHash,
-        wallet_address: walletAddress,
+        wallet_address: wallet,
+        payment_tx_hash: paymentHash,
       })
       .select()
       .single();
 
     if (error) {
+      // unique violation: a concurrent request used the same payment or locker
+      if (error.code === '23505') return reject('This payment or locker has already been recorded', 409);
       console.error('Database error:', error);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save deployment', details: error.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return json({ error: 'Failed to save deployment', details: error.message }, 500);
     }
 
     console.log('Deployment saved successfully:', data);
 
     // Verify the new locker on Basescan without holding up the response
-    runInBackground((async () => {
-      const hash = deploymentTxHash as `0x${string}`;
-      const [deployTx, deployReceipt] = await Promise.all([
-        publicClient.getTransaction({ hash }),
-        publicClient.getTransactionReceipt({ hash }),
-      ]);
-      if (deployReceipt.contractAddress?.toLowerCase() !== String(lockerAddress).toLowerCase()) {
-        console.warn('Skipping Basescan verification: deployment tx did not create', lockerAddress);
-        return;
-      }
-      await submitLockerVerification(lockerAddress, constructorArgsFromDeployInput(deployTx.input));
-    })());
+    runInBackground(submitLockerVerification(lockerAddress, constructorArgsFromDeployInput(deployTx.input)));
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data,
-        verified: {
-          paymentAmount: paidAmount,
-          treasury: TREASURY_ADDRESS
-        }
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({
+      success: true,
+      data,
+      verified: {
+        paymentAmount: paidAmount,
+        treasury: TREASURY_ADDRESS
+      }
+    });
 
   } catch (error) {
     console.error('Error in verify-deployment function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({ error: errorMessage }, 500);
   }
 });
