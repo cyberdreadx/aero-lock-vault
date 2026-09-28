@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { PageHeading } from '@/components/layout/PageHeading';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
 import { VestingChart } from '@/components/web3/VestingChart';
+import { CountdownDisplay, useSecondsUntil } from '@/components/web3/Countdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
@@ -66,6 +67,15 @@ function Vault({ v }: { v: VaultInfo }) {
   const isOwner = !!address && address.toLowerCase() === v.owner.toLowerCase();
   const isPending = !!address && address.toLowerCase() === v.pendingOwner.toLowerCase();
   const name = pairLabel(v.symbol, v.isLP);
+  const next = nextUnlockAt(v.schedule, now);
+  // linear vesting unlocks continuously once started, so count down to the end instead
+  const target = v.schedule.kind === 'cliffLinear' && next === now ? end : next;
+  const secondsLeft = useSecondsUntil(target);
+
+  // refresh the on-chain numbers the moment something unlocks
+  useEffect(() => {
+    if (secondsLeft === 0) queryClient.invalidateQueries({ queryKey: ['timelock-vault'] });
+  }, [secondsLeft, queryClient]);
 
   const call = async (label: string, functionName: string, args: unknown[] = [], done = 'done') => {
     try {
@@ -125,6 +135,31 @@ function Vault({ v }: { v: VaultInfo }) {
           <ShieldAlert className="h-4 w-4" /> this contract was not created by aerolock - don't trust it
         </p>
       )}
+
+      <section className="border border-border bg-card p-4 space-y-3">
+        {secondsLeft !== null && secondsLeft > 0 ? (
+          <>
+            <p className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="font-medium">
+                {v.schedule.kind === 'fixed'
+                  ? 'unlocks in'
+                  : target === end
+                    ? 'fully unlocked in'
+                    : v.schedule.kind === 'cliffLinear'
+                      ? 'cliff ends in'
+                      : 'next part unlocks in'}
+              </span>
+              <span className="font-mono text-muted-foreground">{format(target! * 1000, 'MMM d, yyyy h:mm a')}</span>
+            </p>
+            <CountdownDisplay seconds={secondsLeft} />
+          </>
+        ) : (
+          <p className="text-center text-sm font-medium py-2">
+            {v.stillLocked === 0n && v.releasable === 0n && v.released === v.total ? 'fully unlocked and withdrawn' : 'unlocked 🔓'}
+            {v.releasable > 0n && <span className="block text-xs font-normal text-muted-foreground">{amt(v, v.releasable)} {v.symbol} ready to withdraw</span>}
+          </p>
+        )}
+      </section>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[

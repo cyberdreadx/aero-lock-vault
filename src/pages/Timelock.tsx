@@ -20,6 +20,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
 import { PageHeading } from '@/components/layout/PageHeading';
 import { VestingChart } from '@/components/web3/VestingChart';
+import { formatCountdown, useSecondsUntil } from '@/components/web3/Countdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +45,7 @@ import {
   KIND_INDEX,
   describeSchedule,
   fullyUnlockedAt,
+  nextUnlockAt,
   type Schedule,
   type ScheduleKind,
 } from '@/lib/web3/timelock/schedule';
@@ -575,6 +577,8 @@ function VaultRow({ vault }: { vault: `0x${string}` }) {
   const { data: v } = useVault(vault);
   const now = Math.floor(Date.now() / 1000);
   const unlockedPct = v && v.total > 0n ? Number(((v.total - v.stillLocked) * 1000n) / v.total) / 10 : 0;
+  const next = v ? nextUnlockAt(v.schedule, now) : null;
+  const secondsLeft = useSecondsUntil(next && next > now ? next : null);
   return (
     <li>
       <Link to={`/vault/${vault}`} className="flex items-center justify-between gap-3 px-4 py-3 text-xs hover:bg-muted transition-colors">
@@ -584,7 +588,11 @@ function VaultRow({ vault }: { vault: `0x${string}` }) {
             {v?.isLP && <span className="font-mono text-[10px] text-muted-foreground"> · lp</span>}
           </p>
           <p className="text-muted-foreground truncate">
-            {v ? (fullyUnlockedAt(v.schedule) <= now ? 'fully unlocked' : `${unlockedPct}% unlocked · done ${fmtDate(fullyUnlockedAt(v.schedule))}`) : ''}
+            {v
+              ? fullyUnlockedAt(v.schedule) <= now
+                ? 'fully unlocked'
+                : `${unlockedPct}% unlocked${secondsLeft ? ` · ${v.schedule.kind === 'fixed' ? 'unlocks' : 'next'} in ${formatCountdown(secondsLeft)}` : ''}`
+              : ''}
           </p>
         </div>
         <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
