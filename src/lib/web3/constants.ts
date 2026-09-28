@@ -20,3 +20,8 @@ export function isAdminWallet(address?: string): boolean {
   if (!address) return false;
   return ADMIN_WALLETS.some((a) => a.toLowerCase() === address.toLowerCase());
 }
+
+/** Timed & vesting locks are in private beta: only these wallets see them. */
+export function canUseTimelocks(address?: string): boolean {
+  return isAdminWallet(address);
+}
