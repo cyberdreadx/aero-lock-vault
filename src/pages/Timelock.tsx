@@ -105,6 +105,7 @@ export default function Timelock() {
                 <DeployFactory canDeploy={isAdminWallet(address)} />
               ) : (
                 <>
+                  {isAdminWallet(address) && <AdminFeeExempt wallet={address} />}
                   <CreateLock wallet={address} />
                   <MyVaults wallet={address} />
                 </>
@@ -150,6 +151,41 @@ function DeployFactory({ canDeploy }: { canDeploy: boolean }) {
       </div>
       <Button className="w-full sm:w-auto text-xs" disabled={!canDeploy || !!busy} onClick={deploy}>
         {busy ? 'deploying...' : 'deploy contract'}
+      </Button>
+    </section>
+  );
+}
+
+// ----------------------------------------------------------------- admin
+
+/** The factory charges its owner too until the owner exempts their own wallet. */
+function AdminFeeExempt({ wallet }: { wallet: `0x${string}` }) {
+  const queryClient = useQueryClient();
+  const { send, busy } = useBaseTx();
+  const { data: fee } = useTimelockFee(wallet);
+  if (fee === undefined || fee === 0n) return null;
+
+  const exempt = async () => {
+    try {
+      await send('exempting', {
+        to: FACTORY,
+        data: encodeFunctionData({ abi: TIMELOCK_FACTORY_ABI, functionName: 'setFeeExempt', args: [wallet, true] }),
+      });
+      toast({ description: 'your wallet now locks for free' });
+      queryClient.invalidateQueries({ queryKey: ['timelock-fee'] });
+    } catch (e) {
+      toast({ description: txErrorMessage(e, 'update failed'), variant: 'destructive' });
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-3 border border-border bg-card p-4 text-xs sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-muted-foreground leading-relaxed">
+        <span className="font-medium text-foreground">admin:</span> your wallet is still charged the $150 fee (it pays itself). make it
+        fee-free - customers still pay.
+      </p>
+      <Button size="sm" className="text-xs shrink-0" disabled={!!busy} onClick={exempt}>
+        {busy ? 'updating...' : 'make my wallet fee-free'}
       </Button>
     </section>
   );
@@ -427,7 +463,16 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         {kind === 'fixed' && (
           <div className="space-y-2">
             <p className="text-[11px] text-muted-foreground">unlock date - you can push it later afterwards, never earlier</p>
-            <Input type="date" value={unlockDate} onChange={(e) => setUnlockDate(e.target.value)} className="text-base sm:text-sm w-full sm:w-56" />
+            <Input
+              type="date"
+              value={unlockDate}
+              min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
+              onChange={(e) => setUnlockDate(e.target.value)}
+              className="text-base sm:text-sm w-full sm:w-56"
+            />
+            {unlockTime > now && (
+              <p className="text-[11px] text-muted-foreground">unlocks {format(unlockTime * 1000, "EEE MMM d, yyyy 'at' h:mm a")} (your time)</p>
+            )}
           </div>
         )}
         {kind === 'cliffLinear' && (
