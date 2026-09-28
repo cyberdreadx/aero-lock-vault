@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { PageHeading } from '@/components/layout/PageHeading';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
 import { VestingChart } from '@/components/web3/VestingChart';
+import { CountdownDisplay, useSecondsUntil } from '@/components/web3/Countdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
@@ -21,7 +22,7 @@ import { describeSchedule, fullyUnlockedAt, nextUnlockAt, pairLabel } from '@/li
 import { buildTimedShareText, xShareUrl } from '@/lib/share';
 import { withReferral } from '@/lib/referral';
 
-const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy');
+const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy h:mm a');
 
 export default function VaultDetails() {
   const { vaultAddress } = useParams();
@@ -57,6 +58,7 @@ function Vault({ v }: { v: VaultInfo }) {
   const queryClient = useQueryClient();
   const { send, busy } = useBaseTx();
   const [newDate, setNewDate] = useState('');
+  const [newClock, setNewClock] = useState('12:00');
   const [newOwner, setNewOwner] = useState('');
 
   const now = Math.floor(Date.now() / 1000);
@@ -66,6 +68,15 @@ function Vault({ v }: { v: VaultInfo }) {
   const isOwner = !!address && address.toLowerCase() === v.owner.toLowerCase();
   const isPending = !!address && address.toLowerCase() === v.pendingOwner.toLowerCase();
   const name = pairLabel(v.symbol, v.isLP);
+  const next = nextUnlockAt(v.schedule, now);
+  // linear vesting unlocks continuously once started, so count down to the end instead
+  const target = v.schedule.kind === 'cliffLinear' && next === now ? end : next;
+  const secondsLeft = useSecondsUntil(target);
+
+  // refresh the on-chain numbers the moment something unlocks
+  useEffect(() => {
+    if (secondsLeft === 0) queryClient.invalidateQueries({ queryKey: ['timelock-vault'] });
+  }, [secondsLeft, queryClient]);
 
   const call = async (label: string, functionName: string, args: unknown[] = [], done = 'done') => {
     try {
@@ -126,6 +137,31 @@ function Vault({ v }: { v: VaultInfo }) {
         </p>
       )}
 
+      <section className="border border-border bg-card p-4 space-y-3">
+        {secondsLeft !== null && secondsLeft > 0 ? (
+          <>
+            <p className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="font-medium">
+                {v.schedule.kind === 'fixed'
+                  ? 'unlocks in'
+                  : target === end
+                    ? 'fully unlocked in'
+                    : v.schedule.kind === 'cliffLinear'
+                      ? 'cliff ends in'
+                      : 'next part unlocks in'}
+              </span>
+              <span className="font-mono text-muted-foreground">{format(target! * 1000, 'MMM d, yyyy h:mm a')}</span>
+            </p>
+            <CountdownDisplay seconds={secondsLeft} />
+          </>
+        ) : (
+          <p className="text-center text-sm font-medium py-2">
+            {v.stillLocked === 0n && v.releasable === 0n && v.released === v.total ? 'fully unlocked and withdrawn' : 'unlocked 🔓'}
+            {v.releasable > 0n && <span className="block text-xs font-normal text-muted-foreground">{amt(v, v.releasable)} {v.symbol} ready to withdraw</span>}
+          </p>
+        )}
+      </section>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           ['still locked', v.stillLocked],
@@ -177,16 +213,17 @@ function Vault({ v }: { v: VaultInfo }) {
 
           {isOwner && v.schedule.kind === 'fixed' && end > now && (
             <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">extend the lock - pushes the unlock date later (never earlier)</p>
+              <p className="text-[11px] text-muted-foreground">extend the lock - pushes the unlock later (never earlier)</p>
               <div className="flex gap-2">
-                <Input type="date" value={newDate} min={format((end + 86_400) * 1000, 'yyyy-MM-dd')} onChange={(e) => setNewDate(e.target.value)} className="text-base sm:text-sm" />
+                <Input type="date" aria-label="new unlock date" value={newDate} min={format(end * 1000, 'yyyy-MM-dd')} onChange={(e) => setNewDate(e.target.value)} className="text-base sm:text-sm flex-1" />
+                <Input type="time" aria-label="new unlock time" value={newClock} onChange={(e) => setNewClock(e.target.value)} className="text-base sm:text-sm w-28" />
                 <Button
                   variant="outline"
                   className="text-xs h-10"
                   disabled={!newDate || !!busy}
                   onClick={() => {
-                    const t = Math.floor(new Date(`${newDate}T00:00`).getTime() / 1000);
-                    if (t <= end) return toast({ description: 'pick a date after the current unlock', variant: 'destructive' });
+                    const t = Math.floor(new Date(`${newDate}T${newClock || '00:00'}`).getTime() / 1000);
+                    if (!(t > end)) return toast({ description: `pick a time after the current unlock (${fmtDate(end)})`, variant: 'destructive' });
                     call('extending', 'extendUnlock', [BigInt(t)], `extended to ${fmtDate(t)}`);
                   }}
                 >

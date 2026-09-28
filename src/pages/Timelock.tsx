@@ -20,6 +20,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
 import { PageHeading } from '@/components/layout/PageHeading';
 import { VestingChart } from '@/components/web3/VestingChart';
+import { formatCountdown, useSecondsUntil } from '@/components/web3/Countdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +45,7 @@ import {
   KIND_INDEX,
   describeSchedule,
   fullyUnlockedAt,
+  nextUnlockAt,
   type Schedule,
   type ScheduleKind,
 } from '@/lib/web3/timelock/schedule';
@@ -54,7 +56,9 @@ const MAX_SPAN = 100 * 365 * DAY;
 // the contract refunds anything above the fee; this absorbs price moves while signing
 const FEE_BUFFER_PERCENT = 3n;
 const POOL_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
-const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy');
+const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy h:mm a');
+// a fixed unlock must be at least this far out, leaving time to sign and confirm
+const MIN_LEAD = 5 * 60;
 
 interface Asset {
   address: `0x${string}`;
@@ -264,6 +268,7 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
   const [amount, setAmount] = useState('');
   const [kind, setKind] = useState<ScheduleKind>('fixed');
   const [unlockDate, setUnlockDate] = useState(format(addDays(new Date(), 90), 'yyyy-MM-dd'));
+  const [unlockClock, setUnlockClock] = useState('12:00');
   const [cliffDays, setCliffDays] = useState(90);
   const [vestDays, setVestDays] = useState(365);
   const [steps, setSteps] = useState(12);
@@ -289,7 +294,7 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
   );
 
   const now = Math.floor(Date.now() / 1000);
-  const unlockTime = Math.floor(new Date(`${unlockDate}T00:00`).getTime() / 1000);
+  const unlockTime = Math.floor(new Date(`${unlockDate}T${unlockClock || '00:00'}`).getTime() / 1000) || 0;
   const schedule: Schedule = {
     kind,
     start: now,
@@ -314,8 +319,8 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         ? `you only have ${formatUnits(asset.balance, asset.decimals)} ${asset.symbol}`
         : !isAddress(owner, { strict: false })
           ? 'beneficiary must be a wallet address'
-          : kind === 'fixed' && !(unlockTime > now && unlockTime - now <= MAX_SPAN)
-            ? 'pick an unlock date in the future'
+          : kind === 'fixed' && !(unlockTime >= now + MIN_LEAD && unlockTime - now <= MAX_SPAN)
+            ? 'pick an unlock time at least 5 minutes from now'
             : kind === 'cliffLinear' && !(vestDays > 0 && cliffDays >= 0 && (cliffDays + vestDays) * DAY <= MAX_SPAN)
               ? 'unlock length must be at least a day'
               : kind === 'steps' && !(steps >= 1 && steps <= 1000 && stepDays > 0 && steps * stepDays * DAY <= MAX_SPAN)
@@ -462,14 +467,24 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
 
         {kind === 'fixed' && (
           <div className="space-y-2">
-            <p className="text-[11px] text-muted-foreground">unlock date - you can push it later afterwards, never earlier</p>
-            <Input
-              type="date"
-              value={unlockDate}
-              min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
-              onChange={(e) => setUnlockDate(e.target.value)}
-              className="text-base sm:text-sm w-full sm:w-56"
-            />
+            <p className="text-[11px] text-muted-foreground">unlock date and time - you can push it later afterwards, never earlier</p>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                aria-label="unlock date"
+                value={unlockDate}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                onChange={(e) => setUnlockDate(e.target.value)}
+                className="text-base sm:text-sm flex-1 sm:flex-none sm:w-44"
+              />
+              <Input
+                type="time"
+                aria-label="unlock time"
+                value={unlockClock}
+                onChange={(e) => setUnlockClock(e.target.value)}
+                className="text-base sm:text-sm w-32"
+              />
+            </div>
             {unlockTime > now && (
               <p className="text-[11px] text-muted-foreground">unlocks {format(unlockTime * 1000, "EEE MMM d, yyyy 'at' h:mm a")} (your time)</p>
             )}
@@ -575,6 +590,8 @@ function VaultRow({ vault }: { vault: `0x${string}` }) {
   const { data: v } = useVault(vault);
   const now = Math.floor(Date.now() / 1000);
   const unlockedPct = v && v.total > 0n ? Number(((v.total - v.stillLocked) * 1000n) / v.total) / 10 : 0;
+  const next = v ? nextUnlockAt(v.schedule, now) : null;
+  const secondsLeft = useSecondsUntil(next && next > now ? next : null);
   return (
     <li>
       <Link to={`/vault/${vault}`} className="flex items-center justify-between gap-3 px-4 py-3 text-xs hover:bg-muted transition-colors">
@@ -584,7 +601,11 @@ function VaultRow({ vault }: { vault: `0x${string}` }) {
             {v?.isLP && <span className="font-mono text-[10px] text-muted-foreground"> · lp</span>}
           </p>
           <p className="text-muted-foreground truncate">
-            {v ? (fullyUnlockedAt(v.schedule) <= now ? 'fully unlocked' : `${unlockedPct}% unlocked · done ${fmtDate(fullyUnlockedAt(v.schedule))}`) : ''}
+            {v
+              ? fullyUnlockedAt(v.schedule) <= now
+                ? 'fully unlocked'
+                : `${unlockedPct}% unlocked${secondsLeft ? ` · ${v.schedule.kind === 'fixed' ? 'unlocks' : 'next'} in ${formatCountdown(secondsLeft)}` : ''}`
+              : ''}
           </p>
         </div>
         <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
