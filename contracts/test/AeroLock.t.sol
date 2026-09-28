@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {AeroLockFactory} from "../src/AeroLockFactory.sol";
 import {AeroVestingVault} from "../src/AeroVestingVault.sol";
 import {IAerodromePoolFactory} from "../src/interfaces/IAerodrome.sol";
+import {AggregatorV3Interface} from "../src/interfaces/IChainlink.sol";
 import {
     MockERC20,
     TaxToken,
@@ -16,7 +17,8 @@ import {
     MockPoolFactory,
     HijackToken,
     ReentrantToken,
-    RejectEth
+    RejectEth,
+    MockAggregator
 } from "./mocks/Mocks.sol";
 
 contract AeroLockTest is Test {
@@ -31,14 +33,29 @@ contract AeroLockTest is Test {
     address bob = makeAddr("bob");
     address carol = makeAddr("carol");
 
-    uint256 constant FEE = 0.04 ether;
+    MockAggregator priceFeed;
+    MockAggregator sequencer;
+
+    // $150 at $2,500/ETH
+    uint256 constant FEE_USD = 150e8;
+    uint256 constant FEE = 0.06 ether;
     uint256 constant AMOUNT = 1_000_000e18;
     uint64 constant T0 = 1_750_000_000;
 
     function setUp() public {
         vm.warp(T0);
         poolFactory = new MockPoolFactory();
-        factory = new AeroLockFactory(admin, treasury, FEE, IAerodromePoolFactory(address(poolFactory)));
+        priceFeed = new MockAggregator(8, 2500e8);
+        sequencer = new MockAggregator(0, 0);
+        sequencer.set(0, T0 - 2 hours, T0 - 2 hours);
+        factory = new AeroLockFactory(
+            admin,
+            treasury,
+            FEE_USD,
+            IAerodromePoolFactory(address(poolFactory)),
+            AggregatorV3Interface(address(priceFeed)),
+            AggregatorV3Interface(address(sequencer))
+        );
         token = new MockERC20("TKN");
         pool = new MockPool();
         poolFactory.setPool(address(pool), true);
@@ -137,25 +154,132 @@ contract AeroLockTest is Test {
         _create(_params(token, AeroVestingVault.Kind.CliffLinear));
     }
 
-    function test_create_wrongFeeReverts() public {
+    function test_fee_pricedInUsd() public {
+        assertEq(factory.fee(), FEE);
+        priceFeed.set(3000e8, T0, T0);
+        assertEq(factory.fee(), 0.05 ether);
+        // rounds up, never undercharges
+        priceFeed.set(2999e8, T0, T0);
+        assertEq(factory.fee(), uint256(150e8) * 1e18 / 2999e8 + 1);
+    }
+
+    function test_fee_otherFeedDecimals() public {
+        MockAggregator feed18 = new MockAggregator(18, 2500e18);
+        AeroLockFactory f = new AeroLockFactory(
+            admin,
+            treasury,
+            FEE_USD,
+            IAerodromePoolFactory(address(poolFactory)),
+            AggregatorV3Interface(address(feed18)),
+            AggregatorV3Interface(address(0))
+        );
+        assertEq(f.fee(), FEE);
+    }
+
+    function test_create_underpaidReverts() public {
         AeroLockFactory.CreateParams memory p = _params(token, AeroVestingVault.Kind.Fixed);
         vm.startPrank(alice);
-        vm.expectRevert(abi.encodeWithSelector(AeroLockFactory.WrongFee.selector, FEE, 0));
+        vm.expectRevert(abi.encodeWithSelector(AeroLockFactory.InsufficientFee.selector, FEE, 0));
         factory.createLock(p);
-        vm.expectRevert(abi.encodeWithSelector(AeroLockFactory.WrongFee.selector, FEE, FEE + 1));
+        vm.expectRevert(abi.encodeWithSelector(AeroLockFactory.InsufficientFee.selector, FEE, FEE - 1));
+        factory.createLock{value: FEE - 1}(p);
+        vm.stopPrank();
+    }
+
+    function test_create_overpaymentRefunded() public {
+        uint256 aliceBefore = alice.balance;
+        uint256 treasuryBefore = treasury.balance;
+        vm.prank(alice);
+        factory.createLock{value: FEE + 0.01 ether}(_params(token, AeroVestingVault.Kind.Fixed));
+        assertEq(treasury.balance - treasuryBefore, FEE);
+        assertEq(aliceBefore - alice.balance, FEE);
+        assertEq(address(factory).balance, 0);
+    }
+
+    function test_create_refundToNonReceiverReverts() public {
+        // a caller that can't take ETH back must send the exact fee
+        address caller = address(new RejectEth());
+        token.mint(caller, AMOUNT);
+        vm.deal(caller, 1 ether);
+        vm.startPrank(caller);
+        token.approve(address(factory), AMOUNT);
+        AeroLockFactory.CreateParams memory p = _params(token, AeroVestingVault.Kind.Fixed);
+        p.owner = caller;
+        vm.expectRevert(AeroLockFactory.RefundFailed.selector);
         factory.createLock{value: FEE + 1}(p);
+        factory.createLock{value: FEE}(p);
         vm.stopPrank();
     }
 
     function test_create_feeExempt() public {
         vm.prank(admin);
         factory.setFeeExempt(alice, true);
+        assertEq(factory.feeFor(alice), 0);
+        assertEq(factory.feeFor(bob), FEE);
+        uint256 before = alice.balance;
         vm.startPrank(alice);
-        AeroLockFactory.CreateParams memory p = _params(token, AeroVestingVault.Kind.Fixed);
-        vm.expectRevert(abi.encodeWithSelector(AeroLockFactory.WrongFee.selector, 0, FEE));
-        factory.createLock{value: FEE}(p);
-        factory.createLock(p);
+        factory.createLock(_params(token, AeroVestingVault.Kind.Fixed));
+        factory.createLock{value: FEE}(_params(token, AeroVestingVault.Kind.Fixed)); // refunded
         vm.stopPrank();
+        assertEq(alice.balance, before);
+    }
+
+    function test_fee_zeroUsdIsFreeWithoutReadingPrice() public {
+        vm.prank(admin);
+        factory.setFeeUsd(0);
+        priceFeed.set(0, 0, 0); // broken feed doesn't matter
+        assertEq(factory.fee(), 0);
+        vm.prank(alice);
+        factory.createLock(_params(token, AeroVestingVault.Kind.Fixed));
+    }
+
+    function test_fee_stalePriceBlocksCreation() public {
+        vm.warp(T0 + 1 hours + 1);
+        vm.expectRevert(AeroLockFactory.PriceUnavailable.selector);
+        factory.fee();
+        vm.prank(alice);
+        vm.expectRevert(AeroLockFactory.PriceUnavailable.selector);
+        factory.createLock{value: 1 ether}(_params(token, AeroVestingVault.Kind.Fixed));
+
+        vm.prank(admin);
+        factory.setMaxPriceAge(2 hours);
+        assertEq(factory.fee(), FEE);
+    }
+
+    function test_fee_badPricesRejected() public {
+        priceFeed.set(0, T0, T0);
+        vm.expectRevert(AeroLockFactory.PriceUnavailable.selector);
+        factory.fee();
+        priceFeed.set(-1, T0, T0);
+        vm.expectRevert(AeroLockFactory.PriceUnavailable.selector);
+        factory.fee();
+        priceFeed.set(2500e8, T0, T0 + 1); // from the future
+        vm.expectRevert(AeroLockFactory.PriceUnavailable.selector);
+        factory.fee();
+    }
+
+    function test_fee_sequencerDownOrJustRestarted() public {
+        sequencer.set(1, T0 - 2 hours, T0);
+        vm.expectRevert(AeroLockFactory.SequencerDown.selector);
+        factory.fee();
+        sequencer.set(0, T0 - 30 minutes, T0);
+        vm.expectRevert(AeroLockFactory.SequencerDown.selector);
+        factory.fee();
+        sequencer.set(0, T0 - 1 hours, T0);
+        assertEq(factory.fee(), FEE);
+    }
+
+    function test_setMaxPriceAgeBounds() public {
+        vm.startPrank(admin);
+        vm.expectRevert(AeroLockFactory.InvalidPriceAge.selector);
+        factory.setMaxPriceAge(59);
+        vm.expectRevert(AeroLockFactory.InvalidPriceAge.selector);
+        factory.setMaxPriceAge(1 days + 1);
+        factory.setMaxPriceAge(1 days);
+        vm.stopPrank();
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
+        factory.setMaxPriceAge(1 hours);
     }
 
     function test_create_invalidInputsRevert() public {
@@ -529,7 +653,7 @@ contract AeroLockTest is Test {
     function test_admin() public {
         vm.startPrank(bob);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
-        factory.setFee(0);
+        factory.setFeeUsd(0);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
         factory.setTreasury(bob);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
@@ -537,8 +661,8 @@ contract AeroLockTest is Test {
         vm.stopPrank();
 
         vm.startPrank(admin);
-        factory.setFee(1 ether);
-        assertEq(factory.fee(), 1 ether);
+        factory.setFeeUsd(300e8);
+        assertEq(factory.fee(), 2 * FEE);
         vm.expectRevert(AeroLockFactory.ZeroAddress.selector);
         factory.setTreasury(address(0));
         factory.setTreasury(carol);

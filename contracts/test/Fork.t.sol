@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AeroLockFactory} from "../src/AeroLockFactory.sol";
 import {AeroVestingVault} from "../src/AeroVestingVault.sol";
 import {IAerodromePoolFactory} from "../src/interfaces/IAerodrome.sol";
+import {AggregatorV3Interface} from "../src/interfaces/IChainlink.sol";
 
 interface IPoolSwap {
     function getAmountOut(uint256 amountIn, address tokenIn) external view returns (uint256);
@@ -19,6 +20,8 @@ contract ForkTest is Test {
     address constant POOL = 0xcDAC0d6c6C59727a65F871236188350531885C43; // vAMM-WETH/USDC
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    AggregatorV3Interface constant ETH_USD = AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70);
+    AggregatorV3Interface constant SEQUENCER = AggregatorV3Interface(0xBCF85224fc0756B9Fa45aA7892530B47e10b6433);
 
     AeroLockFactory factory;
     address alice = makeAddr("alice");
@@ -29,7 +32,10 @@ contract ForkTest is Test {
         if (!vm.envOr("RUN_FORK", false)) return;
         vm.createSelectFork(vm.rpcUrl("base"));
         forked = true;
-        factory = new AeroLockFactory(address(this), makeAddr("treasury"), 0, AERO_FACTORY);
+        // a fresh address: common labels like "treasury" are real wallets on Base mainnet
+        address treasury = makeAddr("aerolock-fork-test-treasury");
+        require(treasury.code.length == 0 && treasury.balance == 0, "treasury address in use on Base");
+        factory = new AeroLockFactory(address(this), treasury, 0, AERO_FACTORY, ETH_USD, SEQUENCER);
     }
 
     function test_fork_realPoolLockEarnsAndClaimsFees() public {
@@ -78,6 +84,33 @@ contract ForkTest is Test {
         vm.prank(alice);
         v.release();
         assertEq(IERC20(POOL).balanceOf(alice), lp);
+    }
+
+    function test_fork_realChainlinkFee() public {
+        vm.skip(!forked);
+        factory.setFeeUsd(150e8);
+        uint256 fee = factory.fee();
+        // $150 is between 0.01 and 0.5 ETH for any ETH price from $300 to $15,000
+        assertGt(fee, 0.01 ether);
+        assertLt(fee, 0.5 ether);
+        (, int256 price,,,) = ETH_USD.latestRoundData();
+        assertApproxEqRel(fee * uint256(price) / 1e8, 150e18, 1e12);
+
+        address payer = makeAddr("payer");
+        deal(USDC, payer, 100e6);
+        vm.deal(payer, 1 ether);
+        AeroLockFactory.CreateParams memory p;
+        p.token = IERC20(USDC);
+        p.amount = 100e6;
+        p.owner = payer;
+        p.kind = AeroVestingVault.Kind.Fixed;
+        p.unlockTime = uint64(block.timestamp + 1 days);
+        vm.startPrank(payer);
+        IERC20(USDC).approve(address(factory), 100e6);
+        factory.createLock{value: (fee * 102) / 100}(p); // UI-style 2% buffer
+        vm.stopPrank();
+        assertEq(payer.balance, 1 ether - fee, "buffer refunded");
+        assertEq(factory.treasury().balance, fee);
     }
 
     function test_fork_plainTokenIsNotLP() public {
