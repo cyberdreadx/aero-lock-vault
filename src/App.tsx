@@ -16,6 +16,8 @@ import LockerDetails from "./pages/LockerDetails";
 import LockedShowcase from "./pages/LockedShowcase";
 import Docs from "./pages/Docs";
 import Affiliates from "./pages/Affiliates";
+import Timelock from "./pages/Timelock";
+import VaultDetails from "./pages/VaultDetails";
 import NotFound from "./pages/NotFound";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { captureReferral } from "@/lib/referral";
@@ -60,6 +62,8 @@ const App = () => (
                 <Route path="/locked/:lockerAddress" element={<LockedShowcase />} />
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/affiliates" element={<Affiliates />} />
+                <Route path="/timelock" element={<Timelock />} />
+                <Route path="/vault/:vaultAddress" element={<VaultDetails />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

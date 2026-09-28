@@ -100,3 +100,23 @@ export function buildAffiliateShareText(): string {
     'lock yours 👇',
   ].join('\n');
 }
+
+/** Post for a timed or vesting lock, matching its real state. */
+export function buildTimedShareText(opts: {
+  symbol: string;
+  isLP: boolean;
+  amount: string;
+  kind: 'fixed' | 'cliffLinear' | 'steps';
+  fullyUnlockedAt: Date;
+  unlockedPercent: number;
+}): string {
+  const tag = /^[A-Za-z][A-Za-z0-9]{0,11}$/.test(opts.symbol) ? `$${opts.symbol}` : opts.symbol;
+  const what = opts.isLP ? `${pairName(opts.symbol)} ${AERO_HANDLE} LP` : tag;
+  const date = format(opts.fullyUnlockedAt, 'MMM d, yyyy');
+  if (opts.unlockedPercent >= 100) return [`${opts.amount} ${what} lock on ${X_HANDLE} has fully unlocked.`, '', 'details 👇'].join('\n');
+  const how =
+    opts.kind === 'fixed'
+      ? `locked until ${date}. nobody can unlock it early - not even the owner.`
+      : `vesting until ${date}${opts.unlockedPercent > 0 ? ` (${opts.unlockedPercent}% unlocked so far)` : ''}. it can only unlock on schedule.`;
+  return [`🔒 ${opts.amount} ${what} locked on ${X_HANDLE}`, '', how, '', 'check it live 👇'].join('\n');
+}

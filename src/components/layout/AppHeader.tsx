@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Lock, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,9 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import { WalletButton } from '@/components/web3/WalletButton';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { cn } from '@/lib/utils';
+import { WagmiContext } from 'wagmi';
+import { getAccount, watchAccount } from 'wagmi/actions';
+import { canUseTimelocks } from '@/lib/web3/constants';
 
 export interface NavItem {
   label: string;
@@ -62,8 +65,22 @@ export function Logo({ className }: { className?: string }) {
   );
 }
 
-export function AppHeader({ nav = APP_NAV, actions, cta, showWallet = true }: AppHeaderProps) {
+// The connected address, or undefined outside a WagmiProvider (e.g. the build-time prerender).
+function useOptionalAddress() {
+  const config = useContext(WagmiContext);
+  const [address, setAddress] = useState(() => (config ? getAccount(config).address : undefined));
+  useEffect(() => (config ? watchAccount(config, { onChange: (account) => setAddress(account.address) }) : undefined), [config]);
+  return address;
+}
+
+export function AppHeader({ nav: navProp = APP_NAV, actions, cta, showWallet = true }: AppHeaderProps) {
   const [open, setOpen] = useState(false);
+  const address = useOptionalAddress();
+  // timed locks are in private beta: only beta wallets get the link
+  const nav =
+    navProp === APP_NAV && canUseTimelocks(address)
+      ? [...APP_NAV.slice(0, 2), { label: 'timed', to: '/timelock' }, ...APP_NAV.slice(2)]
+      : navProp;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">

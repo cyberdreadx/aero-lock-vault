@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "sync:locker-source": "node scripts/sync-locker-source.mjs"
+    "sync:locker-source": "node scripts/sync-locker-source.mjs",
+    "sync:timelock": "node scripts/sync-timelock-artifacts.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
