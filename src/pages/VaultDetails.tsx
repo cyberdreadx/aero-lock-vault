@@ -22,7 +22,7 @@ import { describeSchedule, fullyUnlockedAt, nextUnlockAt, pairLabel } from '@/li
 import { buildTimedShareText, xShareUrl } from '@/lib/share';
 import { withReferral } from '@/lib/referral';
 
-const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy');
+const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy h:mm a');
 
 export default function VaultDetails() {
   const { vaultAddress } = useParams();
@@ -58,6 +58,7 @@ function Vault({ v }: { v: VaultInfo }) {
   const queryClient = useQueryClient();
   const { send, busy } = useBaseTx();
   const [newDate, setNewDate] = useState('');
+  const [newClock, setNewClock] = useState('12:00');
   const [newOwner, setNewOwner] = useState('');
 
   const now = Math.floor(Date.now() / 1000);
@@ -212,16 +213,17 @@ function Vault({ v }: { v: VaultInfo }) {
 
           {isOwner && v.schedule.kind === 'fixed' && end > now && (
             <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">extend the lock - pushes the unlock date later (never earlier)</p>
+              <p className="text-[11px] text-muted-foreground">extend the lock - pushes the unlock later (never earlier)</p>
               <div className="flex gap-2">
-                <Input type="date" value={newDate} min={format((end + 86_400) * 1000, 'yyyy-MM-dd')} onChange={(e) => setNewDate(e.target.value)} className="text-base sm:text-sm" />
+                <Input type="date" aria-label="new unlock date" value={newDate} min={format(end * 1000, 'yyyy-MM-dd')} onChange={(e) => setNewDate(e.target.value)} className="text-base sm:text-sm flex-1" />
+                <Input type="time" aria-label="new unlock time" value={newClock} onChange={(e) => setNewClock(e.target.value)} className="text-base sm:text-sm w-28" />
                 <Button
                   variant="outline"
                   className="text-xs h-10"
                   disabled={!newDate || !!busy}
                   onClick={() => {
-                    const t = Math.floor(new Date(`${newDate}T00:00`).getTime() / 1000);
-                    if (t <= end) return toast({ description: 'pick a date after the current unlock', variant: 'destructive' });
+                    const t = Math.floor(new Date(`${newDate}T${newClock || '00:00'}`).getTime() / 1000);
+                    if (!(t > end)) return toast({ description: `pick a time after the current unlock (${fmtDate(end)})`, variant: 'destructive' });
                     call('extending', 'extendUnlock', [BigInt(t)], `extended to ${fmtDate(t)}`);
                   }}
                 >

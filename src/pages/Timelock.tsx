@@ -56,7 +56,9 @@ const MAX_SPAN = 100 * 365 * DAY;
 // the contract refunds anything above the fee; this absorbs price moves while signing
 const FEE_BUFFER_PERCENT = 3n;
 const POOL_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
-const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy');
+const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy h:mm a');
+// a fixed unlock must be at least this far out, leaving time to sign and confirm
+const MIN_LEAD = 5 * 60;
 
 interface Asset {
   address: `0x${string}`;
@@ -266,6 +268,7 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
   const [amount, setAmount] = useState('');
   const [kind, setKind] = useState<ScheduleKind>('fixed');
   const [unlockDate, setUnlockDate] = useState(format(addDays(new Date(), 90), 'yyyy-MM-dd'));
+  const [unlockClock, setUnlockClock] = useState('12:00');
   const [cliffDays, setCliffDays] = useState(90);
   const [vestDays, setVestDays] = useState(365);
   const [steps, setSteps] = useState(12);
@@ -291,7 +294,7 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
   );
 
   const now = Math.floor(Date.now() / 1000);
-  const unlockTime = Math.floor(new Date(`${unlockDate}T00:00`).getTime() / 1000);
+  const unlockTime = Math.floor(new Date(`${unlockDate}T${unlockClock || '00:00'}`).getTime() / 1000) || 0;
   const schedule: Schedule = {
     kind,
     start: now,
@@ -316,8 +319,8 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         ? `you only have ${formatUnits(asset.balance, asset.decimals)} ${asset.symbol}`
         : !isAddress(owner, { strict: false })
           ? 'beneficiary must be a wallet address'
-          : kind === 'fixed' && !(unlockTime > now && unlockTime - now <= MAX_SPAN)
-            ? 'pick an unlock date in the future'
+          : kind === 'fixed' && !(unlockTime >= now + MIN_LEAD && unlockTime - now <= MAX_SPAN)
+            ? 'pick an unlock time at least 5 minutes from now'
             : kind === 'cliffLinear' && !(vestDays > 0 && cliffDays >= 0 && (cliffDays + vestDays) * DAY <= MAX_SPAN)
               ? 'unlock length must be at least a day'
               : kind === 'steps' && !(steps >= 1 && steps <= 1000 && stepDays > 0 && steps * stepDays * DAY <= MAX_SPAN)
@@ -464,14 +467,24 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
 
         {kind === 'fixed' && (
           <div className="space-y-2">
-            <p className="text-[11px] text-muted-foreground">unlock date - you can push it later afterwards, never earlier</p>
-            <Input
-              type="date"
-              value={unlockDate}
-              min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
-              onChange={(e) => setUnlockDate(e.target.value)}
-              className="text-base sm:text-sm w-full sm:w-56"
-            />
+            <p className="text-[11px] text-muted-foreground">unlock date and time - you can push it later afterwards, never earlier</p>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                aria-label="unlock date"
+                value={unlockDate}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                onChange={(e) => setUnlockDate(e.target.value)}
+                className="text-base sm:text-sm flex-1 sm:flex-none sm:w-44"
+              />
+              <Input
+                type="time"
+                aria-label="unlock time"
+                value={unlockClock}
+                onChange={(e) => setUnlockClock(e.target.value)}
+                className="text-base sm:text-sm w-32"
+              />
+            </div>
             {unlockTime > now && (
               <p className="text-[11px] text-muted-foreground">unlocks {format(unlockTime * 1000, "EEE MMM d, yyyy 'at' h:mm a")} (your time)</p>
             )}
