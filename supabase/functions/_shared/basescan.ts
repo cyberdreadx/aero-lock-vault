@@ -1,4 +1,4 @@
-// Submits a locker's source to Basescan (Etherscan v2 API) so it shows as verified.
+// Submits contract sources to Basescan (Etherscan v2 API) so they show as verified.
 // Needs the BASESCAN_API_KEY secret (an Etherscan API key works: v2 covers Base).
 import { LOCKER_SOURCE } from './lockerSource.ts';
 
@@ -18,17 +18,9 @@ export type VerifyResult =
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function submitLockerVerification(
-  lockerAddress: string,
-  constructorArgs: string,
-): Promise<VerifyResult> {
-  const apiKey = Deno.env.get('BASESCAN_API_KEY');
-  if (!apiKey) return { status: 'skipped', reason: 'BASESCAN_API_KEY is not set' };
-
-  const body = new URLSearchParams({
-    module: 'contract',
+export function submitLockerVerification(lockerAddress: string, constructorArgs: string): Promise<VerifyResult> {
+  return submitVerification(lockerAddress, {
     action: 'verifysourcecode',
-    apikey: apiKey,
     contractaddress: lockerAddress,
     sourceCode: LOCKER_SOURCE,
     codeformat: 'solidity-single-file',
@@ -41,6 +33,38 @@ export async function submitLockerVerification(
     // (sic) Etherscan's parameter name
     constructorArguements: constructorArgs,
   });
+}
+
+/** Verifies a contract from a solc standard-JSON input (multi-file sources). */
+export function submitStandardJsonVerification(opts: {
+  address: string;
+  /** "path/File.sol:ContractName" */
+  contractName: string;
+  standardInput: string;
+  compilerVersion: string;
+  constructorArgs?: string;
+}): Promise<VerifyResult> {
+  return submitVerification(opts.address, {
+    action: 'verifysourcecode',
+    contractaddress: opts.address,
+    sourceCode: opts.standardInput,
+    codeformat: 'solidity-standard-json-input',
+    contractname: opts.contractName,
+    compilerversion: opts.compilerVersion,
+    licenseType: MIT_LICENSE,
+    constructorArguements: opts.constructorArgs ?? '',
+  });
+}
+
+/** Links a proxy (e.g. an EIP-1167 clone) to its verified implementation on Basescan. */
+export function submitProxyVerification(address: string, implementation: string): Promise<VerifyResult> {
+  return submitVerification(address, { action: 'verifyproxycontract', address, expectedimplementation: implementation });
+}
+
+async function submitVerification(address: string, params: Record<string, string>): Promise<VerifyResult> {
+  const apiKey = Deno.env.get('BASESCAN_API_KEY');
+  if (!apiKey) return { status: 'skipped', reason: 'BASESCAN_API_KEY is not set' };
+  const body = new URLSearchParams({ module: 'contract', apikey: apiKey, ...params });
 
   // A freshly deployed contract can take a little while to be indexed.
   const attempts = 5;
@@ -52,7 +76,7 @@ export async function submitLockerVerification(
       const message = String(data?.result ?? data?.message ?? '');
 
       if (data?.status === '1') {
-        console.log('Basescan verification submitted', lockerAddress, message);
+        console.log('Basescan verification submitted', address, message);
         return { status: 'submitted', guid: message };
       }
       if (/already verified/i.test(message)) {
@@ -67,8 +91,22 @@ export async function submitLockerVerification(
     if (attempt < attempts) await sleep(10_000);
   }
 
-  console.error('Basescan verification failed', lockerAddress, lastReason);
+  console.error('Basescan verification failed', address, lastReason);
   return { status: 'failed', reason: lastReason };
+}
+
+/** Result of a submitted job ("Pass - Verified", "Fail - ...", "Pending in queue"). */
+export async function checkVerificationStatus(guid: string, proxy = false): Promise<string> {
+  const apiKey = Deno.env.get('BASESCAN_API_KEY') ?? '';
+  const query = new URLSearchParams({
+    module: 'contract',
+    action: proxy ? 'checkproxyverification' : 'checkverifystatus',
+    guid,
+    apikey: apiKey,
+  });
+  const res = await fetch(`${API_URL}&${query}`);
+  const data = await res.json();
+  return String(data?.result ?? data?.message ?? '');
 }
 
 /** keep work running after the response is sent, where the runtime supports it */

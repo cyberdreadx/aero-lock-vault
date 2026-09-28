@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.affiliate-payout]
 verify_jwt = false
+
+[functions.verify-timelock]
+verify_jwt = false
