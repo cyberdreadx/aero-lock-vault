@@ -32,18 +32,52 @@ forge test                                            # unit + fuzz (2,000 runs 
 RUN_FORK=true forge test --match-contract Fork -vv    # against real Aerodrome on Base
 ```
 
-## Deploy to Base Sepolia
+## Fee
 
-1. Get Base Sepolia ETH from a faucet (e.g. the Coinbase Developer Platform faucet).
-2. Import a throwaway deployer key: `cast wallet import aerolock-test --interactive`
-3. Deploy (on testnet this also creates a test token and a test LP pool, minted to you):
+The fee is set in US dollars (`feeUsd`, 8 decimals: `150e8` = $150) and charged in ETH at
+Chainlink's live ETH/USD price, rounded up. Callers may send more; the excess is refunded in
+the same transaction. If the price is over an hour old, or Base's sequencer is down or
+restarted less than an hour ago, lock creation pauses instead of charging a wrong price.
+The owner can change `feeUsd`, the treasury, fee-exempt wallets and the max price age -
+nothing else.
 
-```shell
-OWNER=0xYourAdminWallet TREASURY=0xYourTreasury FEE_WEI=55770000000000000 \
-forge script script/Deploy.s.sol --rpc-url https://sepolia.base.org \
-  --account aerolock-test --broadcast --verify --verifier etherscan \
-  --etherscan-api-key $BASESCAN_API_KEY
-```
+## Deploy to Base Sepolia (testnet) - step by step
 
-`FEE_WEI` is fixed in ETH, so its dollar value drifts. 0.05577 ETH ≈ $150 at $2,690/ETH.
-The owner can update it at any time with `setFee`.
+You need a computer (Mac, Linux, or Windows with WSL). Nothing here touches real money.
+
+1. **Install Foundry** (one time):
+   ```shell
+   curl -L https://foundry.paradigm.xyz | bash
+   foundryup
+   ```
+2. **Get the code** and its libraries:
+   ```shell
+   git clone https://github.com/cyberdreadx/aero-lock-vault.git
+   cd aero-lock-vault/contracts
+   forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts@v5.1.0 --no-git
+   forge test
+   ```
+   You should see every test pass.
+3. **Make a throwaway deployer wallet** - never your real admin wallet's key:
+   ```shell
+   cast wallet new
+   ```
+   Note the address. Then save its private key under a name (it asks for the key and a password):
+   ```shell
+   cast wallet import aerolock-test --interactive
+   ```
+4. **Get free testnet ETH** for that address from the Coinbase faucet
+   (portal.cdp.coinbase.com/products/faucet, network: Base Sepolia). 0.05 ETH is plenty.
+5. **Deploy.** Your admin wallet becomes the owner and treasury:
+   ```shell
+   OWNER=0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e \
+   TREASURY=0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e \
+   FEE_USD=150 \
+   forge script script/Deploy.s.sol --rpc-url https://sepolia.base.org \
+     --account aerolock-test --broadcast
+   ```
+   On testnet this also creates a test token and a test LP pool (1,000,000 of each, sent
+   to the deployer wallet) so every flow can be tried.
+6. **Send the printed addresses** (AeroLockFactory, Test token, Test LP pool) back so the
+   app can be pointed at them. To verify the source on Basescan, add
+   `--verify --verifier etherscan --etherscan-api-key <BASESCAN_API_KEY>` to step 5.
