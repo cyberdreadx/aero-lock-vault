@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useEthPrice } from '@/hooks/useEthPrice';
+import { supabase } from '@/integrations/supabase/client';
 import { useLpPositions } from '@/hooks/web3/useLpPositions';
 import { useWalletTokens } from '@/hooks/web3/useWalletTokens';
 import { useBaseTx } from '@/hooks/web3/useBaseTx';
@@ -382,6 +383,8 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
       }
       toast({ description: 'locked 🔒' });
       queryClient.invalidateQueries({ queryKey: ['timelock-vaults'] });
+      // show the new lock as verified source on Basescan; best effort, never blocks the user
+      if (vault) supabase.functions.invoke('verify-timelock', { body: { vaultAddress: vault } }).catch(() => undefined);
       if (vault) navigate(`/vault/${vault}`);
     } catch (e) {
       toast({ description: txErrorMessage(e, 'lock failed'), variant: 'destructive' });
