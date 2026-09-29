@@ -1,4 +1,4 @@
-import { Lock, Shield, DollarSign, Clock, TrendingUp, Zap, ArrowRight, Github, X, FileText, ExternalLink } from "lucide-react";
+import { Lock, Shield, DollarSign, Clock, TrendingUp, Users, ArrowRight, Github, X, FileText, ExternalLink } from "lucide-react";
 import { DEPLOYMENT_FEE_USD } from "@/lib/web3/constants";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ const Index = () => {
           { label: 'how it works', to: '#how', anchor: true },
           { label: 'pricing', to: '#pricing', anchor: true },
           { label: 'lock tokens', to: '/deploy?type=token' },
+          { label: 'timed & vesting', to: '/timelock' },
           { label: 'pools', to: '#pools', anchor: true },
           { label: 'earn', to: '/affiliates' },
           { label: 'docs', to: '/docs' },
@@ -141,13 +142,13 @@ const Index = () => {
                 },
                 {
                   icon: Clock,
-                  title: "full control",
-                  description: "trigger, cancel, and withdraw. you own your liquidity.",
+                  title: "timed & vesting locks",
+                  description: "lock until a date, or vest with a cliff, linear unlock or monthly steps. nobody can unlock early - live countdown on every lock.",
                 },
                 {
-                  icon: Zap,
-                  title: "real-time fees",
-                  description: "update and track claimable fees on demand.",
+                  icon: Users,
+                  title: "team vesting",
+                  description: "every team wallet gets its own amount and schedule, in one transaction. share one public page with every allocation.",
                 },
               ].map((feature, i) => (
                 <div key={i} className="group border-r border-b border-border p-5 sm:p-6 hover:bg-muted/40 transition-colors">
@@ -269,6 +270,21 @@ const Index = () => {
               </h3>
             </div>
 
+            <div className="mb-6 grid gap-px border border-border bg-border sm:grid-cols-3">
+              {[
+                { name: "lp & token lock", price: `$${DEPLOYMENT_FEE_USD}`, note: "locked until you give 30 days' public notice", to: "/deploy" },
+                { name: "timed & vesting lock", price: "$150", note: "fixed date, cliff + linear or monthly steps", to: "/timelock" },
+                { name: "team vesting", price: "$150 + $25/wallet", note: "up to 40 wallets, each with its own schedule", to: "/timelock" },
+              ].map((p) => (
+                <Link key={p.name} to={p.to} className="group bg-background p-5 hover:bg-muted/40 transition-colors">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{p.name}</p>
+                  <p className="mt-1 font-mono text-xl font-medium tracking-tight">{p.price}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{p.note}</p>
+                  <p className="mt-3 text-xs group-hover:underline">start →</p>
+                </Link>
+              ))}
+            </div>
+
             <div className="border border-border bg-card overflow-x-auto">
               <table className="w-full min-w-[520px] text-left text-xs">
                 <thead className="bg-muted/40">
@@ -303,6 +319,7 @@ const Index = () => {
             <p className="mt-3 text-[10px] text-muted-foreground leading-relaxed">
               percentage-locker pricing based on published fee schedules for aerodrome lp on base (aug 2026); check each provider for current terms.
               aerodrome v2 pools pay trading fees separately from the lp tokens, so they must be claimed - aerolock lets the owner claim them while the lp stays locked.
+              timed, vesting and team fees are charged in ETH at chainlink's live price; their contracts are open source and verified on basescan, with an independent audit in progress.
             </p>
           </div>
         </div>

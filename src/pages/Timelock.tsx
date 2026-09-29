@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
 import { concat, encodeFunctionData, erc20Abi, formatEther, formatUnits, isAddress, parseUnits } from 'viem';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowRight, Hourglass, Plus, Rocket, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Plus, Rocket, X } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
 import { PageHeading } from '@/components/layout/PageHeading';
@@ -30,7 +30,7 @@ import {
   useTimelockVaults,
   useVault,
 } from '@/hooks/web3/useTimelock';
-import { canUseTimelocks, isAdminWallet } from '@/lib/web3/constants';
+import { isAdminWallet } from '@/lib/web3/constants';
 import { factoryEvents } from '@/lib/web3/timelock/events';
 import { txErrorMessage } from '@/lib/web3/txError';
 import {
@@ -50,7 +50,6 @@ const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy h:mm a');
 
 export default function Timelock() {
   const { address, isConnected } = useAccount();
-  const beta = canUseTimelocks(address);
   const { data: deployed, isLoading } = useTimelockFactoryDeployed();
 
   if (!isConnected || !address) {
@@ -68,33 +67,23 @@ export default function Timelock() {
             description="for any base token or aerodrome lp. nobody can unlock early - not you, not us."
           />
 
-          {!beta ? (
-            <div className="border border-dashed border-border px-6 py-12 text-center space-y-2">
-              <Hourglass className="mx-auto h-6 w-6 text-muted-foreground" />
-              <p className="text-sm font-medium">coming soon</p>
-              <p className="text-xs text-muted-foreground">timed and vesting locks are in private testing. follow @aerolockvault for launch.</p>
-            </div>
+          <p className="flex gap-2 border border-border bg-card p-3 text-[11px] text-muted-foreground leading-relaxed">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              new: contracts are open source and verified on basescan; an independent audit is in progress. a lock can never be undone - not by
+              you, not by aerolock - so double-check the amount, wallet and dates.
+            </span>
+          </p>
+          {isLoading ? (
+            <div className="h-40 border border-border bg-muted/30 animate-pulse" />
+          ) : !deployed ? (
+            <DeployFactory canDeploy={isAdminWallet(address)} />
           ) : (
             <>
-              <div className="flex gap-3 border border-amber-500/40 bg-amber-500/5 p-4 text-xs">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-                <p className="text-muted-foreground leading-relaxed">
-                  <span className="font-medium text-foreground">private beta, not yet audited.</span> only your wallet can see
-                  this page. test with small amounts - a lock can never be undone, even by aerolock.
-                </p>
-              </div>
-              {isLoading ? (
-                <div className="h-40 border border-border bg-muted/30 animate-pulse" />
-              ) : !deployed ? (
-                <DeployFactory canDeploy={isAdminWallet(address)} />
-              ) : (
-                <>
-                  {isAdminWallet(address) && <AdminFeeExempt wallet={address} />}
-                  <CreatePanel wallet={address} />
-                  <MyTeams wallet={address} />
-                  <MyVaults wallet={address} />
-                </>
-              )}
+              {isAdminWallet(address) && <AdminFeeExempt wallet={address} />}
+              <CreatePanel wallet={address} />
+              <MyTeams wallet={address} />
+              <MyVaults wallet={address} />
             </>
           )}
         </div>

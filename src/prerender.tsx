@@ -16,6 +16,7 @@ function StaticHeader() {
         <nav className="flex items-center gap-6 text-xs text-muted-foreground" aria-label="main">
           <a href="/lockers">lockers</a>
           <a href="/deploy">deploy</a>
+          <a href="/timelock">timed</a>
           <a href="/docs">docs</a>
         </nav>
       </div>

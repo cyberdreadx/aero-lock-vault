@@ -51,10 +51,9 @@ export function useTimelockVaults(owner?: `0x${string}`, enabled = true) {
     queryKey: ['timelock-vaults', owner],
     enabled: !!owner && enabled,
     queryFn: async () => {
+      // a failed read throws so react-query retries, instead of caching "no locks"
       const lists = await Promise.all(
-        KNOWN_FACTORIES.map((f) =>
-          factoryCall<readonly `0x${string}`[]>('vaultsOf', [owner!], f as `0x${string}`).catch(() => [] as readonly `0x${string}`[]),
-        ),
+        KNOWN_FACTORIES.map((f) => factoryCall<readonly `0x${string}`[]>('vaultsOf', [owner!], f as `0x${string}`)),
       );
       // current factory first, each newest first
       return lists.flatMap((l) => [...l].reverse());

@@ -7,15 +7,10 @@ import { AddressDisplay } from '@/components/web3/AddressDisplay';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
 import { PageHeading } from '@/components/layout/PageHeading';
-import { formatDistanceToNow } from 'date-fns';
-import { useTokenKind } from '@/hooks/web3/useTokenKind';
-import { ArrowRight, Plus, RefreshCw, Vault } from 'lucide-react';
-
-// "· lp" / "· token" next to each locker
-function LockerKind({ token }: { token: string }) {
-  const { data: kind } = useTokenKind(token);
-  return kind ? <span className="text-foreground">· {kind === 'lp' ? 'lp' : 'token'}</span> : null;
-}
+import { LockerSummaryCard } from '@/components/web3/LockerSummaryCard';
+import { TimedLockCard } from '@/components/web3/timelock/TimedLockCard';
+import { useTeamBatchesOf, useTimelockVaults } from '@/hooks/web3/useTimelock';
+import { Plus, RefreshCw, Vault } from 'lucide-react';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -81,46 +76,50 @@ export default function Dashboard() {
           {!isLoading && lockers && lockers.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2">
               {lockers.map((locker) => (
-                <Link
+                <LockerSummaryCard
                   key={locker.id}
-                  to={`/locker/${locker.locker_address}`}
-                  className="group border border-border bg-card p-5 hover:border-foreground/40 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 space-y-1">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                          locker contract <LockerKind token={locker.lp_token_address} />
-                        </p>
-                        <AddressDisplay address={locker.locker_address as `0x${string}`} />
-                      </div>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                        manage
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">token</p>
-                        <AddressDisplay address={locker.lp_token_address as `0x${string}`} showLink={false} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">deployed</p>
-                        <p className="text-xs leading-8 sm:leading-6">
-                          {locker.deployed_at
-                            ? formatDistanceToNow(new Date(locker.deployed_at), { addSuffix: true })
-                            : 'unknown'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+                  locker={locker.locker_address as `0x${string}`}
+                  token={locker.lp_token_address as `0x${string}`}
+                  deployedAt={locker.deployed_at}
+                />
               ))}
             </div>
           )}
+
+          <TimedLocksSection wallet={address} />
         </div>
       </main>
     </div>
+  );
+}
+
+/** Timed, vesting and team locks this wallet owns or created. */
+function TimedLocksSection({ wallet }: { wallet?: `0x${string}` }) {
+  const { data: vaults, isLoading } = useTimelockVaults(wallet);
+  const { data: teams } = useTeamBatchesOf(wallet);
+  if (isLoading || (!vaults?.length && !teams?.length)) return null;
+  return (
+    <section className="space-y-4 pt-4">
+      <div className="flex items-end justify-between gap-2">
+        <h2 className="text-sm font-semibold tracking-tight">timed &amp; vesting locks</h2>
+        <Link to="/timelock" className="text-xs text-muted-foreground hover:text-foreground">
+          new timed lock →
+        </Link>
+      </div>
+      {!!teams?.length && (
+        <div className="flex flex-wrap gap-2">
+          {teams.map((id) => (
+            <Link key={id} to={`/team/${id}`} className="border border-border px-3 py-1.5 text-xs hover:border-foreground/40 transition-colors">
+              team vesting #{id} →
+            </Link>
+          ))}
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-2">
+        {(vaults ?? []).map((v) => (
+          <TimedLockCard key={v} vault={v} />
+        ))}
+      </div>
+    </section>
   );
 }
