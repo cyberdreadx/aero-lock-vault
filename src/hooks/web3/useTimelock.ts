@@ -5,6 +5,17 @@ import { TIMELOCK_FACTORY_ABI, TIMELOCK_FACTORY_ADDRESS, TIMELOCK_VAULT_ABI } fr
 import { KIND_FROM_INDEX, type Schedule } from '@/lib/web3/timelock/schedule';
 
 const factory = TIMELOCK_FACTORY_ADDRESS as `0x${string}`;
+// earlier factories whose locks stay valid; v1 had no team batches but reads the same
+const LEGACY_FACTORIES = ['0x07E05724Be95Ea989F66471F822fB489aCFb83ea'] as const;
+const KNOWN_FACTORIES = [factory, ...LEGACY_FACTORIES].map((f) => f.toLowerCase());
+
+async function factoryCall<T>(functionName: string, args: unknown[] = [], to: `0x${string}` = factory): Promise<T> {
+  const res = await baseClient.call({
+    to,
+    data: encodeFunctionData({ abi: TIMELOCK_FACTORY_ABI, functionName, args } as never),
+  });
+  return decodeFunctionResult({ abi: TIMELOCK_FACTORY_ABI, functionName, data: res.data! } as never) as T;
+}
 
 /** Whether the timed-lock factory has been deployed yet. */
 export function useTimelockFactoryDeployed() {
@@ -34,18 +45,76 @@ export function useTimelockFee(account?: `0x${string}`, enabled = true) {
   });
 }
 
-/** Vaults created for `owner`, newest first. */
+/** Vaults created for `owner` across every AeroLock timed-lock factory, newest first. */
 export function useTimelockVaults(owner?: `0x${string}`, enabled = true) {
   return useQuery({
     queryKey: ['timelock-vaults', owner],
     enabled: !!owner && enabled,
     queryFn: async () => {
-      const data = await baseClient.call({
-        to: factory,
-        data: encodeFunctionData({ abi: TIMELOCK_FACTORY_ABI, functionName: 'vaultsOf', args: [owner!] }),
+      const lists = await Promise.all(
+        KNOWN_FACTORIES.map((f) =>
+          factoryCall<readonly `0x${string}`[]>('vaultsOf', [owner!], f as `0x${string}`).catch(() => [] as readonly `0x${string}`[]),
+        ),
+      );
+      // current factory first, each newest first
+      return lists.flatMap((l) => [...l].reverse());
+    },
+  });
+}
+
+/** What `account` pays for a team batch of `count` locks, in wei. */
+export function useTimelockBatchFee(account: `0x${string}` | undefined, count: number) {
+  return useQuery({
+    queryKey: ['timelock-fee', account, 'batch', count],
+    enabled: !!account && count > 0,
+    refetchInterval: 30_000,
+    queryFn: () => factoryCall<bigint>('feeForBatch', [account!, BigInt(count)]),
+  });
+}
+
+export interface TeamBatch {
+  id: number;
+  creator: `0x${string}`;
+  createdAt: number;
+  label: string;
+  vaults: `0x${string}`[];
+}
+
+export function useTeamBatch(id?: number) {
+  return useQuery({
+    queryKey: ['timelock-batch', id],
+    enabled: id !== undefined && Number.isInteger(id) && id >= 0,
+    queryFn: async (): Promise<TeamBatch | null> => {
+      const count = await factoryCall<bigint>('batchCount');
+      if (BigInt(id!) >= count) return null;
+      const [creator, createdAt, label, vaults] = await factoryCall<[`0x${string}`, bigint, string, readonly `0x${string}`[]]>('batch', [
+        BigInt(id!),
+      ]);
+      return { id: id!, creator, createdAt: Number(createdAt), label, vaults: [...vaults] };
+    },
+  });
+}
+
+/** Team batches `creator` has made, newest first. */
+export function useTeamBatchesOf(creator?: `0x${string}`) {
+  return useQuery({
+    queryKey: ['timelock-batches-of', creator],
+    enabled: !!creator,
+    queryFn: async () => [...(await factoryCall<readonly bigint[]>('batchesOf', [creator!]))].map(Number).reverse(),
+  });
+}
+
+/** How much of `token` the factory may pull from `owner`. */
+export function useFactoryAllowance(token?: `0x${string}`, owner?: `0x${string}`) {
+  return useQuery({
+    queryKey: ['allowance', token, owner, factory],
+    enabled: !!token && !!owner,
+    queryFn: async () => {
+      const res = await baseClient.call({
+        to: token!,
+        data: encodeFunctionData({ abi: erc20Abi, functionName: 'allowance', args: [owner!, factory] }),
       });
-      const vaults = decodeFunctionResult({ abi: TIMELOCK_FACTORY_ABI, functionName: 'vaultsOf', data: data.data! });
-      return [...(vaults as readonly `0x${string}`[])].reverse();
+      return decodeFunctionResult({ abi: erc20Abi, functionName: 'allowance', data: res.data! });
     },
   });
 }
@@ -86,20 +155,21 @@ const VAULT_FIELDS = [
 const cloneCode = (impl: string) =>
   `0x363d3d373d3d3d363d73${impl.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3`;
 
-async function readVault(address: `0x${string}`): Promise<VaultInfo | null> {
+export async function readVault(address: `0x${string}`): Promise<VaultInfo | null> {
   const results = await multicallRead([
     ...VAULT_FIELDS.map((fn) => ({
       target: address,
       callData: encodeFunctionData({ abi: TIMELOCK_VAULT_ABI, functionName: fn } as never),
     })),
-    { target: factory, callData: encodeFunctionData({ abi: TIMELOCK_FACTORY_ABI, functionName: 'implementation' }) },
   ]);
-  if (results.slice(0, VAULT_FIELDS.length).some((r) => r === null)) return null;
+  if (results.some((r) => r === null)) return null;
   const v = Object.fromEntries(
     VAULT_FIELDS.map((fn, i) => [fn, decodeFunctionResult({ abi: TIMELOCK_VAULT_ABI, functionName: fn, data: results[i]! } as never)]),
   ) as Record<(typeof VAULT_FIELDS)[number], unknown>;
-  const impl = results[VAULT_FIELDS.length]
-    ? (decodeFunctionResult({ abi: TIMELOCK_FACTORY_ABI, functionName: 'implementation', data: results[VAULT_FIELDS.length]! }) as string)
+  // genuine = made by one of our factories AND running exactly that factory's vault logic
+  const vaultFactory = String(v.factory).toLowerCase();
+  const impl = KNOWN_FACTORIES.includes(vaultFactory)
+    ? await factoryCall<string>('implementation', [], vaultFactory as `0x${string}`).catch(() => null)
     : null;
 
   const token = v.token as `0x${string}`;
@@ -115,9 +185,7 @@ async function readVault(address: `0x${string}`): Promise<VaultInfo | null> {
 
   return {
     address: getAddress(address),
-    // made by our factory AND running exactly our vault logic
-    genuine:
-      String(v.factory).toLowerCase() === factory.toLowerCase() && !!impl && code?.toLowerCase() === cloneCode(impl),
+    genuine: !!impl && code?.toLowerCase() === cloneCode(impl),
     token,
     symbol: meta[0] ? (decodeFunctionResult({ abi: erc20Abi, functionName: 'symbol', data: meta[0] }) as string) : '???',
     decimals: meta[1] ? Number(decodeFunctionResult({ abi: erc20Abi, functionName: 'decimals', data: meta[1] })) : 18,

@@ -32,6 +32,15 @@ forge test                                            # unit + fuzz (2,000 runs 
 RUN_FORK=true forge test --match-contract Fork -vv    # against real Aerodrome on Base
 ```
 
+## Team vesting (batches)
+
+`createLocks(CreateParams[], label)` makes up to 40 locks in one transaction - e.g. a team,
+each member with their own wallet, amount and schedule. Every lock is an ordinary vault owned
+by its member; the creator has no control over them afterwards. The batch (creator, time,
+label, vaults) is stored for a public team page. One fee: `feeUsd` plus `feePerExtraLockUsd`
+for each lock after the first ($150 + $25 each by default). 40 locks use ~12.7M gas, under
+the 16.7M per-transaction cap.
+
 ## Fee
 
 The fee is set in US dollars (`feeUsd`, 8 decimals: `150e8` = $150) and charged in ETH at

@@ -17,16 +17,26 @@ const args = {
   owner: TREASURY,
   treasury: TREASURY,
   feeUsd: 150n * 10n ** 8n, // $150
+  feePerExtraLockUsd: 25n * 10n ** 8n, // +$25 per extra wallet in a team batch
   aerodromeFactory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
   priceFeed: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70', // Chainlink ETH/USD on Base
   sequencerFeed: '0xBCF85224fc0756B9Fa45aA7892530B47e10b6433', // Chainlink Base sequencer uptime
 };
-const SALT = keccak256(toHex('aerolock.timelock.v1'));
+// v2 added createLocks (team vesting); v1 lives on at 0x07E05724Be95Ea989F66471F822fB489aCFb83ea
+const SALT = keccak256(toHex('aerolock.timelock.v2'));
 const CREATE2_DEPLOYER = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
 const encodedArgs = encodeAbiParameters(
-  [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }, { type: 'address' }, { type: 'address' }, { type: 'address' }],
-  [args.owner, args.treasury, args.feeUsd, args.aerodromeFactory, args.priceFeed, args.sequencerFeed],
+  [
+    { type: 'address' },
+    { type: 'address' },
+    { type: 'uint256' },
+    { type: 'uint256' },
+    { type: 'address' },
+    { type: 'address' },
+    { type: 'address' },
+  ],
+  [args.owner, args.treasury, args.feeUsd, args.feePerExtraLockUsd, args.aerodromeFactory, args.priceFeed, args.sequencerFeed],
 );
 const initCode = factory.bytecode.object + encodedArgs.slice(2);
 const address = getContractAddress({ opcode: 'CREATE2', from: CREATE2_DEPLOYER, salt: SALT, bytecode: initCode });

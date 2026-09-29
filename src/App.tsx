@@ -18,6 +18,7 @@ import Docs from "./pages/Docs";
 import Affiliates from "./pages/Affiliates";
 import Timelock from "./pages/Timelock";
 import VaultDetails from "./pages/VaultDetails";
+import TeamVesting from "./pages/TeamVesting";
 import NotFound from "./pages/NotFound";
 import { AuthGuard } from "./components/auth/AuthGuard";
 import { captureReferral } from "@/lib/referral";
@@ -64,6 +65,7 @@ const App = () => (
                 <Route path="/affiliates" element={<Affiliates />} />
                 <Route path="/timelock" element={<Timelock />} />
                 <Route path="/vault/:vaultAddress" element={<VaultDetails />} />
+                <Route path="/team/:batchId" element={<TeamVesting />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

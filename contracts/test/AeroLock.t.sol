@@ -38,6 +38,9 @@ contract AeroLockTest is Test {
 
     // $150 at $2,500/ETH
     uint256 constant FEE_USD = 150e8;
+    // each extra lock in a createLocks batch: $25 = 0.01 ETH at $2,500
+    uint256 constant EXTRA_USD = 25e8;
+    uint256 constant EXTRA = 0.01 ether;
     uint256 constant FEE = 0.06 ether;
     uint256 constant AMOUNT = 1_000_000e18;
     uint64 constant T0 = 1_750_000_000;
@@ -52,6 +55,7 @@ contract AeroLockTest is Test {
             admin,
             treasury,
             FEE_USD,
+            EXTRA_USD,
             IAerodromePoolFactory(address(poolFactory)),
             AggregatorV3Interface(address(priceFeed)),
             AggregatorV3Interface(address(sequencer))
@@ -169,6 +173,7 @@ contract AeroLockTest is Test {
             admin,
             treasury,
             FEE_USD,
+            EXTRA_USD,
             IAerodromePoolFactory(address(poolFactory)),
             AggregatorV3Interface(address(feed18)),
             AggregatorV3Interface(address(0))
@@ -691,6 +696,120 @@ contract AeroLockTest is Test {
         // a token the Aerodrome factory doesn't know is locked as a plain token
         poolFactory.setPool(address(pool), false);
         assertFalse(_create(_params(pool, AeroVestingVault.Kind.Fixed)).isLP());
+    }
+
+    // ------------------------------------------------------------ batches (team vesting)
+
+    function _team(uint256 n) internal view returns (AeroLockFactory.CreateParams[] memory ps) {
+        ps = new AeroLockFactory.CreateParams[](n);
+        for (uint256 i; i < n; i++) {
+            ps[i] = _params(token, AeroVestingVault.Kind(i % 3));
+            ps[i].owner = address(uint160(0xA000 + i));
+            ps[i].amount = (i + 1) * 1e18;
+        }
+    }
+
+    function test_batch_feeIsBasePlusPerExtraLock() public {
+        assertEq(factory.feeForBatch(alice, 1), FEE, "one lock costs the same as createLock");
+        assertEq(factory.feeForBatch(alice, 10), FEE + 9 * EXTRA);
+        assertEq(factory.feeForBatch(alice, 0), 0);
+        vm.prank(admin);
+        factory.setFeeExempt(alice, true);
+        assertEq(factory.feeForBatch(alice, 10), 0);
+    }
+
+    function test_batch_createsIndependentLocks() public {
+        AeroLockFactory.CreateParams[] memory ps = _team(5);
+        uint256 treasuryBefore = treasury.balance;
+        uint256 aliceBefore = token.balanceOf(alice);
+        vm.prank(alice);
+        (uint256 id, address[] memory vaults) = factory.createLocks{value: 1 ether}(ps, "Team vesting");
+
+        assertEq(treasury.balance - treasuryBefore, FEE + 4 * EXTRA, "one fee for the whole team");
+        assertEq(address(factory).balance, 0);
+        assertEq(aliceBefore - token.balanceOf(alice), 15e18, "1+2+3+4+5 tokens");
+        assertEq(vaults.length, 5);
+        for (uint256 i; i < 5; i++) {
+            AeroVestingVault v = AeroVestingVault(vaults[i]);
+            assertEq(v.owner(), ps[i].owner, "each member owns their own lock");
+            assertEq(v.total(), ps[i].amount);
+            assertEq(uint8(v.schedule().kind), uint8(ps[i].kind));
+            assertEq(token.balanceOf(vaults[i]), ps[i].amount);
+            assertEq(factory.vaultsOf(ps[i].owner)[0], vaults[i]);
+        }
+        assertEq(factory.vaultCount(), 5);
+
+        (address creator, uint64 createdAt, string memory label, address[] memory stored) = factory.batch(id);
+        assertEq(creator, alice);
+        assertEq(createdAt, T0);
+        assertEq(label, "Team vesting");
+        assertEq(stored, vaults);
+        assertEq(factory.batchCount(), 1);
+        assertEq(factory.batchesOf(alice)[0], id);
+    }
+
+    function test_batch_membersReleaseOnTheirOwnSchedules() public {
+        AeroLockFactory.CreateParams[] memory ps = _team(3); // fixed 1y, cliff 90d + 30d linear, 12 x 30d steps
+        vm.prank(alice);
+        (, address[] memory vaults) = factory.createLocks{value: 1 ether}(ps, "");
+
+        vm.warp(T0 + 105 days);
+        assertEq(AeroVestingVault(vaults[0]).releasable(), 0, "fixed: still locked");
+        assertEq(AeroVestingVault(vaults[1]).releasable(), ps[1].amount / 2, "linear: half");
+        assertEq(AeroVestingVault(vaults[2]).releasable(), (ps[2].amount * 3) / 12, "steps: 3 of 12");
+
+        // a member can only release their own lock
+        vm.prank(ps[1].owner);
+        vm.expectRevert(AeroVestingVault.NotOwner.selector);
+        AeroVestingVault(vaults[2]).release();
+        vm.prank(ps[1].owner);
+        AeroVestingVault(vaults[1]).release();
+        assertEq(token.balanceOf(ps[1].owner), ps[1].amount / 2);
+        // and the creator can't take anyone's tokens back
+        vm.prank(alice);
+        vm.expectRevert(AeroVestingVault.NotOwner.selector);
+        AeroVestingVault(vaults[2]).release();
+    }
+
+    function test_batch_invalidInputs() public {
+        vm.startPrank(alice);
+        vm.expectRevert(AeroLockFactory.InvalidBatchSize.selector);
+        factory.createLocks{value: 1 ether}(new AeroLockFactory.CreateParams[](0), "");
+        vm.expectRevert(AeroLockFactory.InvalidBatchSize.selector);
+        factory.createLocks{value: 1 ether}(new AeroLockFactory.CreateParams[](41), "");
+        vm.expectRevert(AeroLockFactory.LabelTooLong.selector);
+        factory.createLocks{value: 1 ether}(_team(1), string(new bytes(65)));
+        vm.expectRevert(abi.encodeWithSelector(AeroLockFactory.InsufficientFee.selector, FEE + EXTRA, FEE));
+        factory.createLocks{value: FEE}(_team(2), "");
+
+        // one bad member rejects the whole batch - nothing is half-created
+        AeroLockFactory.CreateParams[] memory ps = _team(3);
+        ps[2].unlockTime = T0; // Fixed in the past
+        ps[2].kind = AeroVestingVault.Kind.Fixed;
+        vm.expectRevert(AeroLockFactory.InvalidSchedule.selector);
+        factory.createLocks{value: 1 ether}(ps, "");
+        vm.stopPrank();
+        assertEq(factory.vaultCount(), 0);
+        assertEq(factory.batchCount(), 0);
+    }
+
+    function test_batch_maxSizeFitsInABlock() public {
+        AeroLockFactory.CreateParams[] memory ps = _team(40);
+        vm.prank(alice);
+        uint256 gasBefore = gasleft();
+        factory.createLocks{value: 2 ether}(ps, "big team");
+        uint256 used = gasBefore - gasleft();
+        assertLt(used, 14_000_000, "40 locks stay well under the 16.7M per-transaction gas cap");
+        assertEq(factory.vaultCount(), 40);
+    }
+
+    function test_setFeePerExtraLock() public {
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
+        factory.setFeePerExtraLockUsd(0);
+        vm.prank(admin);
+        factory.setFeePerExtraLockUsd(0);
+        assertEq(factory.feeForBatch(alice, 50), FEE, "flat team price when per-extra is zero");
     }
 
     // ------------------------------------------------------------ fuzz

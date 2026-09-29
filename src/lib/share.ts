@@ -120,3 +120,16 @@ export function buildTimedShareText(opts: {
       : `vesting until ${date}${opts.unlockedPercent > 0 ? ` (${opts.unlockedPercent}% unlocked so far)` : ''}. it can only unlock on schedule.`;
   return [`🔒 ${opts.amount} ${what} locked on ${X_HANDLE}`, '', how, '', 'check it live 👇'].join('\n');
 }
+
+/** Post for a team vesting page. */
+export function buildTeamShareText(opts: { label: string; symbol: string; isLP: boolean; wallets: number; total: string; until: Date }): string {
+  const tag = /^[A-Za-z][A-Za-z0-9]{0,11}$/.test(opts.symbol) ? `$${opts.symbol}` : opts.symbol;
+  const what = opts.isLP ? `${pairName(opts.symbol)} ${AERO_HANDLE} LP` : tag;
+  return [
+    `🔒 ${opts.label || 'team vesting'}: ${opts.total} ${what} vesting across ${opts.wallets} wallet${opts.wallets === 1 ? '' : 's'} on ${X_HANDLE}`,
+    '',
+    `every allocation unlocks on its own schedule until ${format(opts.until, 'MMM d, yyyy')}. nobody can unlock early - not even the team.`,
+    '',
+    'check every wallet live 👇',
+  ].join('\n');
+}
