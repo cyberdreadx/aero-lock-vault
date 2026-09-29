@@ -40,3 +40,16 @@ export function withReferral(url: string, wallet?: string): string {
 export function affiliateLink(wallet: string): string {
   return withReferral(`${window.location.origin}/`, wallet);
 }
+
+// ascii "aeref:" - marks the referrer appended to timed-lock transactions
+const REFERRAL_TAG_PREFIX = '61657265663a';
+
+/**
+ * Bytes to append to a timed-lock factory call so the sale credits the current referrer.
+ * The contract ignores trailing calldata; record-timelock-sale reads it from the signed tx.
+ */
+export function referralTag(buyer: string): `0x${string}` {
+  const ref = getReferrer();
+  if (!ref || ref === buyer.toLowerCase()) return '0x';
+  return `0x${REFERRAL_TAG_PREFIX}${ref.slice(2)}`;
+}

@@ -24,6 +24,7 @@ export type Database = {
           paid_at: string | null
           paid_tx_hash: string | null
           payment_tx_hash: string
+          product: string
           referrer: string
           sale_wei: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           paid_at?: string | null
           paid_tx_hash?: string | null
           payment_tx_hash: string
+          product?: string
           referrer: string
           sale_wei: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           paid_at?: string | null
           paid_tx_hash?: string | null
           payment_tx_hash?: string
+          product?: string
           referrer?: string
           sale_wei?: string
         }

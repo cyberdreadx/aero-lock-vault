@@ -803,6 +803,23 @@ contract AeroLockTest is Test {
         assertEq(factory.vaultCount(), 40);
     }
 
+    function test_trailingReferralTagIsIgnored() public {
+        // the app appends "aeref:" + referrer to the calldata; the factory must ignore it
+        bytes memory tag = abi.encodePacked("aeref:", bob);
+
+        bytes memory single = abi.encodeCall(AeroLockFactory.createLock, (_params(token, AeroVestingVault.Kind.Fixed)));
+        vm.prank(alice);
+        (bool ok, bytes memory ret) = address(factory).call{value: FEE}(bytes.concat(single, tag));
+        assertTrue(ok, "createLock with tag");
+        assertEq(AeroVestingVault(abi.decode(ret, (address))).total(), AMOUNT);
+
+        bytes memory batchCall = abi.encodeCall(AeroLockFactory.createLocks, (_team(3), "team"));
+        vm.prank(alice);
+        (ok,) = address(factory).call{value: 1 ether}(bytes.concat(batchCall, tag));
+        assertTrue(ok, "createLocks with tag");
+        assertEq(factory.vaultCount(), 4);
+    }
+
     function test_setFeePerExtraLock() public {
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
