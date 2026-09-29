@@ -32,6 +32,8 @@ import {
 } from '@/hooks/web3/useTimelock';
 import { isAdminWallet } from '@/lib/web3/constants';
 import { factoryEvents } from '@/lib/web3/timelock/events';
+import { recordTimelockSale } from '@/lib/web3/timelock/recordSale';
+import { referralTag } from '@/lib/referral';
 import { txErrorMessage } from '@/lib/web3/txError';
 import {
   TIMELOCK_CREATE2_DEPLOYER,
@@ -70,8 +72,8 @@ export default function Timelock() {
           <p className="flex gap-2 border border-border bg-card p-3 text-[11px] text-muted-foreground leading-relaxed">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             <span>
-              new: contracts are open source and verified on basescan; an independent audit is in progress. a lock can never be undone - not by
-              you, not by aerolock - so double-check the amount, wallet and dates.
+              new: contracts are open source and verified on basescan; an independent audit is in progress. a lock can never be undone - not by you,
+              not by aerolock - so double-check the amount, wallet and dates.
             </span>
           </p>
           {isLoading ? (
@@ -119,7 +121,9 @@ function DeployFactory({ canDeploy }: { canDeploy: boolean }) {
         <h2 className="text-sm font-semibold tracking-tight">step 0 · deploy the timed-lock contract</h2>
       </div>
       <div className="text-xs text-muted-foreground leading-relaxed space-y-2">
-        <p>one transaction, about $0.05 of gas. it always lands at the same address and is always owned by the aerolock treasury, whoever sends it.</p>
+        <p>
+          one transaction, about $0.05 of gas. it always lands at the same address and is always owned by the aerolock treasury, whoever sends it.
+        </p>
         <p className="font-mono [overflow-wrap:anywhere]">{TIMELOCK_FACTORY_ADDRESS}</p>
         <p>fee: $150 per lock, or $150 + $25 per extra wallet for team vesting - priced live with chainlink. you can change it later.</p>
       </div>
@@ -155,8 +159,8 @@ function AdminFeeExempt({ wallet }: { wallet: `0x${string}` }) {
   return (
     <section className="flex flex-col gap-3 border border-border bg-card p-4 text-xs sm:flex-row sm:items-center sm:justify-between">
       <p className="text-muted-foreground leading-relaxed">
-        <span className="font-medium text-foreground">admin:</span> your wallet is still charged the $150 fee (it pays itself). make it
-        fee-free - customers still pay.
+        <span className="font-medium text-foreground">admin:</span> your wallet is still charged the $150 fee (it pays itself). make it fee-free -
+        customers still pay.
       </p>
       <Button size="sm" className="text-xs shrink-0" disabled={!!busy} onClick={exempt}>
         {busy ? 'updating...' : 'make my wallet fee-free'}
@@ -202,8 +206,7 @@ function parseAmount(value: string, decimals?: number): bigint | null {
   }
 }
 
-const fmtAmount = (wei: bigint, decimals: number) =>
-  Number(formatUnits(wei, decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 });
+const fmtAmount = (wei: bigint, decimals: number) => Number(formatUnits(wei, decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 });
 
 function FeeLine({ fee, note }: { fee?: bigint; note?: string }) {
   const { data: ethPrice } = useEthPrice();
@@ -300,16 +303,22 @@ function SingleLock({ wallet }: { wallet: `0x${string}` }) {
           : (scheduleProblem ?? (fee === undefined ? 'loading the fee...' : null));
 
   const create = async () => {
+    // credits the affiliate whose link brought this buyer (see recordTimelockSale)
+    const tag = referralTag(wallet);
     try {
       const receipt = await send('locking', {
         to: FACTORY,
         value: fee! + (fee! * FEE_BUFFER_PERCENT) / 100n,
-        data: encodeFunctionData({
-          abi: TIMELOCK_FACTORY_ABI,
-          functionName: 'createLock',
-          args: [{ token: asset!.address, amount: amountWei!, owner, feeReceiver: owner, kind: KIND_INDEX[scheduleInput.kind], ...params }],
-        }),
+        data: concat([
+          encodeFunctionData({
+            abi: TIMELOCK_FACTORY_ABI,
+            functionName: 'createLock',
+            args: [{ token: asset!.address, amount: amountWei!, owner, feeReceiver: owner, kind: KIND_INDEX[scheduleInput.kind], ...params }],
+          }),
+          tag,
+        ]),
       });
+      if (tag !== '0x') void recordTimelockSale(receipt.transactionHash);
       const [vault] = factoryEvents(receipt.logs).vaults;
       toast({ description: 'locked 🔒' });
       queryClient.invalidateQueries({ queryKey: ['timelock-vaults'] });
@@ -342,7 +351,13 @@ function SingleLock({ wallet }: { wallet: `0x${string}` }) {
             {asset.isLP && <span className="text-muted-foreground"> · lp keeps earning aerodrome fees while locked</span>}
           </Label>
           <div className="flex gap-2">
-            <Input inputMode="decimal" placeholder="0.0" value={amount} onChange={(e) => setAmount(e.target.value)} className="font-mono text-base sm:text-sm" />
+            <Input
+              inputMode="decimal"
+              placeholder="0.0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="font-mono text-base sm:text-sm"
+            />
             <Button type="button" variant="outline" className="text-xs h-10" onClick={() => setAmount(formatUnits(asset.balance, asset.decimals))}>
               max
             </Button>
@@ -428,7 +443,10 @@ function TeamLock({ wallet }: { wallet: `0x${string}` }) {
 
   const update = (id: number, patch: Partial<Member>) => setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   const addMember = () =>
-    setMembers((ms) => [...ms.map((m) => ({ ...m, editing: false })), { ...newMember(ms[ms.length - 1]?.schedule ?? defaultScheduleInput()), editing: true }]);
+    setMembers((ms) => [
+      ...ms.map((m) => ({ ...m, editing: false })),
+      { ...newMember(ms[ms.length - 1]?.schedule ?? defaultScheduleInput()), editing: true },
+    ]);
 
   // "0xabc…, 1000" per line; new rows copy the last row's schedule
   const importList = () => {
@@ -448,9 +466,7 @@ function TeamLock({ wallet }: { wallet: `0x${string}` }) {
 
   const resolved = members.map((m) => ({ m, amount: parseAmount(m.amount, asset?.decimals), ...resolveSchedule(m.schedule, now) }));
   const total = resolved.reduce((t, r) => t + (r.amount ?? 0n), 0n);
-  const badIndex = resolved.findIndex(
-    (r) => !isAddress(r.m.wallet.trim(), { strict: false }) || !r.amount || r.amount <= 0n || r.problem,
-  );
+  const badIndex = resolved.findIndex((r) => !isAddress(r.m.wallet.trim(), { strict: false }) || !r.amount || r.amount <= 0n || r.problem);
   const bad = badIndex >= 0 ? resolved[badIndex] : null;
 
   const problem = !asset
@@ -472,26 +488,31 @@ function TeamLock({ wallet }: { wallet: `0x${string}` }) {
               : null;
 
   const create = async () => {
+    const tag = referralTag(wallet);
     try {
       const receipt = await send('locking', {
         to: FACTORY,
         value: fee! + (fee! * FEE_BUFFER_PERCENT) / 100n,
-        data: encodeFunctionData({
-          abi: TIMELOCK_FACTORY_ABI,
-          functionName: 'createLocks',
-          args: [
-            resolved.map((r) => ({
-              token: asset!.address,
-              amount: r.amount!,
-              owner: r.m.wallet.trim() as `0x${string}`,
-              feeReceiver: r.m.wallet.trim() as `0x${string}`,
-              kind: KIND_INDEX[r.m.schedule.kind],
-              ...r.params,
-            })),
-            label.trim(),
-          ],
-        }),
+        data: concat([
+          encodeFunctionData({
+            abi: TIMELOCK_FACTORY_ABI,
+            functionName: 'createLocks',
+            args: [
+              resolved.map((r) => ({
+                token: asset!.address,
+                amount: r.amount!,
+                owner: r.m.wallet.trim() as `0x${string}`,
+                feeReceiver: r.m.wallet.trim() as `0x${string}`,
+                kind: KIND_INDEX[r.m.schedule.kind],
+                ...r.params,
+              })),
+              label.trim(),
+            ],
+          }),
+          tag,
+        ]),
       });
+      if (tag !== '0x') void recordTimelockSale(receipt.transactionHash);
       const { vaults, batchId } = factoryEvents(receipt.logs);
       toast({ description: `${vaults.length} team locks created 🔒` });
       queryClient.invalidateQueries({ queryKey: ['timelock-vaults'] });
@@ -516,14 +537,19 @@ function TeamLock({ wallet }: { wallet: `0x${string}` }) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs">name <span className="text-muted-foreground">(shown on the public team page)</span></Label>
+        <Label className="text-xs">
+          name <span className="text-muted-foreground">(shown on the public team page)</span>
+        </Label>
         <Input value={label} maxLength={64} onChange={(e) => setLabel(e.target.value)} className="text-base sm:text-sm" />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-xs">
-            wallets <span className="text-muted-foreground">({members.length}/{MAX_TEAM})</span>
+            wallets{' '}
+            <span className="text-muted-foreground">
+              ({members.length}/{MAX_TEAM})
+            </span>
           </Label>
           <button type="button" onClick={() => setPasteOpen((o) => !o)} className="text-[11px] text-muted-foreground hover:text-foreground underline">
             paste a list

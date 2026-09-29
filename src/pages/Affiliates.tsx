@@ -19,7 +19,7 @@ import { buildAffiliateShareText, xShareUrl } from '@/lib/share';
 import { BASE_SCAN_URL, DEPLOYMENT_FEE_USD, isAdminWallet } from '@/lib/web3/constants';
 import { txErrorMessage } from '@/lib/web3/txError';
 
-const COMMISSION_USD = (DEPLOYMENT_FEE_USD * AFFILIATE_COMMISSION_PERCENT) / 100;
+const commission = (usd: number) => (usd * AFFILIATE_COMMISSION_PERCENT) / 100;
 
 function eth(wei: bigint): string {
   const n = Number(formatEther(wei));
@@ -44,10 +44,10 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: React
 
 const STEPS = [
   { title: 'share your link', body: 'post it on x, telegram or discord. lock pages you share carry it too.' },
-  { title: 'they lock with aerolock', body: 'anyone who deploys a paid locker within 30 days of clicking your link counts.' },
+  { title: 'they lock with aerolock', body: 'any paid lp lock, token lock, timed or vesting lock, or team vesting within 30 days of clicking your link counts.' },
   {
     title: `you earn ${AFFILIATE_COMMISSION_PERCENT}%`,
-    body: `about $${COMMISSION_USD} per $${DEPLOYMENT_FEE_USD} locker, paid in ETH on base to the wallet that shared.`,
+    body: `about $${commission(DEPLOYMENT_FEE_USD)} per $${DEPLOYMENT_FEE_USD} locker, $${commission(150)} per timed or vesting lock, and more for team vestings - paid in ETH on base.`,
   },
 ];
 
@@ -169,13 +169,18 @@ function AffiliateDashboard({ wallet }: { wallet: string }) {
   );
 }
 
+const PRODUCT_LABEL: Record<string, string> = { locker: 'locker', timelock: 'timed lock', team: 'team vesting' };
+
 function ReferralRow({ r }: { r: Referral }) {
   return (
     <li className="flex flex-col gap-2 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3 min-w-0">
         <span className="font-mono text-muted-foreground shrink-0">{format(new Date(r.created_at), 'MMM d, yyyy')}</span>
-        <Link to={`/locked/${r.locker_address}`} className="font-mono truncate hover:underline">
-          locker {r.locker_address.slice(0, 6)}…{r.locker_address.slice(-4)}
+        <Link
+          to={(r.product ?? 'locker') === 'locker' ? `/locked/${r.locker_address}` : `/vault/${r.locker_address}`}
+          className="font-mono truncate hover:underline"
+        >
+          {PRODUCT_LABEL[r.product ?? 'locker'] ?? 'locker'} {r.locker_address.slice(0, 6)}…{r.locker_address.slice(-4)}
         </Link>
       </div>
       <div className="flex items-center gap-3">

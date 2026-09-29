@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.verify-timelock]
 verify_jwt = false
+
+[functions.record-timelock-sale]
+verify_jwt = false
