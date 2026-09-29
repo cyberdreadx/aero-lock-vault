@@ -35,7 +35,7 @@ contract ForkTest is Test {
         // a fresh address: common labels like "treasury" are real wallets on Base mainnet
         address treasury = makeAddr("aerolock-fork-test-treasury");
         require(treasury.code.length == 0 && treasury.balance == 0, "treasury address in use on Base");
-        factory = new AeroLockFactory(address(this), treasury, 0, AERO_FACTORY, ETH_USD, SEQUENCER);
+        factory = new AeroLockFactory(address(this), treasury, 0, 25e8, AERO_FACTORY, ETH_USD, SEQUENCER);
     }
 
     function test_fork_realPoolLockEarnsAndClaimsFees() public {

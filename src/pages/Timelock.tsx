@@ -1,21 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAccount } from 'wagmi';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  concat,
-  decodeEventLog,
-  decodeFunctionResult,
-  encodeFunctionData,
-  erc20Abi,
-  formatEther,
-  formatUnits,
-  isAddress,
-  parseAbi,
-  parseUnits,
-} from 'viem';
-import { addDays, format } from 'date-fns';
-import { AlertTriangle, ArrowRight, CalendarClock, Hourglass, Layers, Rocket } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { concat, encodeFunctionData, erc20Abi, formatEther, formatUnits, isAddress, parseUnits } from 'viem';
+import { format } from 'date-fns';
+import { AlertTriangle, ArrowRight, Hourglass, Plus, Rocket, X } from 'lucide-react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
 import { PageHeading } from '@/components/layout/PageHeading';
@@ -24,15 +13,25 @@ import { formatCountdown, useSecondsUntil } from '@/components/web3/Countdown';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { AssetPicker, type Asset } from '@/components/web3/timelock/AssetPicker';
+import { ScheduleFields, defaultScheduleInput, resolveSchedule, type ScheduleInput } from '@/components/web3/timelock/ScheduleFields';
 import { toast } from '@/hooks/use-toast';
 import { useEthPrice } from '@/hooks/useEthPrice';
 import { supabase } from '@/integrations/supabase/client';
-import { useLpPositions } from '@/hooks/web3/useLpPositions';
-import { useWalletTokens } from '@/hooks/web3/useWalletTokens';
 import { useBaseTx } from '@/hooks/web3/useBaseTx';
-import { useTimelockFactoryDeployed, useTimelockFee, useTimelockVaults, useVault } from '@/hooks/web3/useTimelock';
-import { baseClient, multicallRead } from '@/lib/web3/baseReads';
-import { AERODROME, canUseTimelocks, isAdminWallet } from '@/lib/web3/constants';
+import {
+  useFactoryAllowance,
+  useTeamBatch,
+  useTeamBatchesOf,
+  useTimelockBatchFee,
+  useTimelockFactoryDeployed,
+  useTimelockFee,
+  useTimelockVaults,
+  useVault,
+} from '@/hooks/web3/useTimelock';
+import { canUseTimelocks, isAdminWallet } from '@/lib/web3/constants';
+import { factoryEvents } from '@/lib/web3/timelock/events';
 import { txErrorMessage } from '@/lib/web3/txError';
 import {
   TIMELOCK_CREATE2_DEPLOYER,
@@ -41,33 +40,13 @@ import {
   TIMELOCK_FACTORY_INITCODE,
   TIMELOCK_FACTORY_SALT,
 } from '@/lib/web3/timelock/artifacts';
-import {
-  DAY,
-  KIND_INDEX,
-  describeSchedule,
-  fullyUnlockedAt,
-  nextUnlockAt,
-  type Schedule,
-  type ScheduleKind,
-} from '@/lib/web3/timelock/schedule';
+import { KIND_INDEX, describeSchedule, fullyUnlockedAt, nextUnlockAt } from '@/lib/web3/timelock/schedule';
 import { cn } from '@/lib/utils';
 
 const FACTORY = TIMELOCK_FACTORY_ADDRESS as `0x${string}`;
-const MAX_SPAN = 100 * 365 * DAY;
 // the contract refunds anything above the fee; this absorbs price moves while signing
 const FEE_BUFFER_PERCENT = 3n;
-const POOL_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
 const fmtDate = (t: number) => format(t * 1000, 'MMM d, yyyy h:mm a');
-// a fixed unlock must be at least this far out, leaving time to sign and confirm
-const MIN_LEAD = 5 * 60;
-
-interface Asset {
-  address: `0x${string}`;
-  symbol: string;
-  decimals: number;
-  balance: bigint;
-  isLP: boolean;
-}
 
 export default function Timelock() {
   const { address, isConnected } = useAccount();
@@ -111,7 +90,8 @@ export default function Timelock() {
               ) : (
                 <>
                   {isAdminWallet(address) && <AdminFeeExempt wallet={address} />}
-                  <CreateLock wallet={address} />
+                  <CreatePanel wallet={address} />
+                  <MyTeams wallet={address} />
                   <MyVaults wallet={address} />
                 </>
               )}
@@ -152,7 +132,7 @@ function DeployFactory({ canDeploy }: { canDeploy: boolean }) {
       <div className="text-xs text-muted-foreground leading-relaxed space-y-2">
         <p>one transaction, about $0.05 of gas. it always lands at the same address and is always owned by the aerolock treasury, whoever sends it.</p>
         <p className="font-mono [overflow-wrap:anywhere]">{TIMELOCK_FACTORY_ADDRESS}</p>
-        <p>fee: $150 per lock, priced live with chainlink. you can change it later.</p>
+        <p>fee: $150 per lock, or $150 + $25 per extra wallet for team vesting - priced live with chainlink. you can change it later.</p>
       </div>
       <Button className="w-full sm:w-auto text-xs" disabled={!canDeploy || !!busy} onClick={deploy}>
         {busy ? 'deploying...' : 'deploy contract'}
@@ -198,118 +178,126 @@ function AdminFeeExempt({ wallet }: { wallet: `0x${string}` }) {
 
 // ----------------------------------------------------------------- create
 
-function useAllowance(token?: `0x${string}`, owner?: `0x${string}`) {
-  return useQuery({
-    queryKey: ['allowance', token, owner, FACTORY],
-    enabled: !!token && !!owner,
-    queryFn: async () => {
-      const res = await baseClient.call({
-        to: token!,
-        data: encodeFunctionData({ abi: erc20Abi, functionName: 'allowance', args: [owner!, FACTORY] }),
-      });
-      return decodeFunctionResult({ abi: erc20Abi, functionName: 'allowance', data: res.data! });
-    },
-  });
-}
-
-async function readAsset(token: `0x${string}`, wallet: `0x${string}`): Promise<Asset | null> {
-  const r = await multicallRead([
-    { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'symbol' }) },
-    { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'decimals' }) },
-    { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [wallet] }) },
-    { target: AERODROME.FACTORY as `0x${string}`, callData: encodeFunctionData({ abi: POOL_ABI, functionName: 'isPool', args: [token] }) },
-  ]);
-  if (!r[1] || !r[2]) return null;
-  return {
-    address: token,
-    symbol: r[0] ? decodeFunctionResult({ abi: erc20Abi, functionName: 'symbol', data: r[0] }) : '???',
-    decimals: decodeFunctionResult({ abi: erc20Abi, functionName: 'decimals', data: r[1] }),
-    balance: decodeFunctionResult({ abi: erc20Abi, functionName: 'balanceOf', data: r[2] }),
-    isLP: r[3] ? decodeFunctionResult({ abi: POOL_ABI, functionName: 'isPool', data: r[3] }) : false,
-  };
-}
-
-const KINDS: { kind: ScheduleKind; label: string; hint: string; icon: typeof CalendarClock }[] = [
-  { kind: 'fixed', label: 'fixed date', hint: 'all unlocks on one day', icon: CalendarClock },
-  { kind: 'cliffLinear', label: 'cliff + linear', hint: 'wait, then unlock gradually', icon: Hourglass },
-  { kind: 'steps', label: 'monthly steps', hint: 'equal parts on a schedule', icon: Layers },
-];
-
-function Chips({ values, value, onChange, unit }: { values: number[]; value: number; onChange: (v: number) => void; unit: (v: number) => string }) {
+function CreatePanel({ wallet }: { wallet: `0x${string}` }) {
+  const [mode, setMode] = useState<'single' | 'team'>('single');
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {values.map((v) => (
-        <button
-          key={v}
-          type="button"
-          onClick={() => onChange(v)}
-          className={cn(
-            'border px-2.5 py-1.5 text-[11px] font-mono transition-colors',
-            v === value ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground/50',
-          )}
-        >
-          {unit(v)}
-        </button>
-      ))}
+    <section className="border border-border bg-card p-4 sm:p-5 space-y-6">
+      <div className="grid grid-cols-2 border border-border p-0.5 text-xs">
+        {(
+          [
+            ['single', 'single lock', 'one wallet, one schedule'],
+            ['team', 'team vesting', 'many wallets, one transaction'],
+          ] as const
+        ).map(([m, label, hint]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={cn('px-3 py-2 text-left transition-colors', mode === m ? 'bg-foreground text-background' : 'hover:bg-muted')}
+          >
+            <span className="block font-medium">{label}</span>
+            <span className="block text-[10px] opacity-70">{hint}</span>
+          </button>
+        ))}
+      </div>
+      {mode === 'single' ? <SingleLock wallet={wallet} /> : <TeamLock wallet={wallet} />}
+    </section>
+  );
+}
+
+function parseAmount(value: string, decimals?: number): bigint | null {
+  try {
+    return decimals !== undefined && value.trim() ? parseUnits(value.trim(), decimals) : null;
+  } catch {
+    return null;
+  }
+}
+
+const fmtAmount = (wei: bigint, decimals: number) =>
+  Number(formatUnits(wei, decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 });
+
+function FeeLine({ fee, note }: { fee?: bigint; note?: string }) {
+  const { data: ethPrice } = useEthPrice();
+  const usd = fee !== undefined && ethPrice ? Number(formatEther(fee)) * ethPrice : null;
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className="text-muted-foreground">fee{note && <span> · {note}</span>}</span>
+      <span className="font-mono">
+        {fee === undefined ? '…' : fee === 0n ? 'free' : `${Number(formatEther(fee)).toFixed(5)} ETH`}
+        {usd !== null && fee !== 0n && <span className="text-muted-foreground"> ≈ ${usd.toFixed(0)}</span>}
+      </span>
     </div>
   );
 }
 
-function CreateLock({ wallet }: { wallet: `0x${string}` }) {
+/** Approve (if needed) then run `action`, one button. */
+function ApproveThen({
+  asset,
+  wallet,
+  total,
+  problem,
+  busy,
+  send,
+  label,
+  action,
+}: {
+  asset: Asset | null;
+  wallet: `0x${string}`;
+  total: bigint | null;
+  problem: string | null;
+  busy: string | null;
+  send: ReturnType<typeof useBaseTx>['send'];
+  label: string;
+  action: () => void;
+}) {
+  const { data: allowance, refetch } = useFactoryAllowance(asset?.address, wallet);
+  const needsApproval = !!total && (allowance ?? 0n) < total;
+  const approve = async () => {
+    try {
+      await send('approving', {
+        to: asset!.address,
+        data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [FACTORY, total!] }),
+      });
+      await refetch();
+    } catch (e) {
+      toast({ description: txErrorMessage(e, 'approval failed'), variant: 'destructive' });
+    }
+  };
+  if (problem) {
+    return (
+      <Button className="w-full text-xs" disabled>
+        {problem}
+      </Button>
+    );
+  }
+  return needsApproval ? (
+    <Button className="w-full text-xs" disabled={!!busy} onClick={approve}>
+      {busy === 'approving' ? 'approving...' : `1/2 · approve ${asset!.symbol}`}
+    </Button>
+  ) : (
+    <Button className="w-full text-xs" disabled={!!busy} onClick={action}>
+      {busy === 'locking' ? 'locking...' : label}
+    </Button>
+  );
+}
+
+const BUFFER_NOTE =
+  'a few % extra ETH is sent to cover price moves while you sign; the contract refunds everything above the fee in the same transaction.';
+
+function SingleLock({ wallet }: { wallet: `0x${string}` }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { send, busy } = useBaseTx();
-  const { positions: lps } = useLpPositions(wallet);
-  const { tokens } = useWalletTokens(wallet, true);
   const { data: fee } = useTimelockFee(wallet);
-  const { data: ethPrice } = useEthPrice();
 
   const [asset, setAsset] = useState<Asset | null>(null);
-  const [pasted, setPasted] = useState('');
   const [amount, setAmount] = useState('');
-  const [kind, setKind] = useState<ScheduleKind>('fixed');
-  const [unlockDate, setUnlockDate] = useState(format(addDays(new Date(), 90), 'yyyy-MM-dd'));
-  const [unlockClock, setUnlockClock] = useState('12:00');
-  const [cliffDays, setCliffDays] = useState(90);
-  const [vestDays, setVestDays] = useState(365);
-  const [steps, setSteps] = useState(12);
-  const [stepDays, setStepDays] = useState(30);
+  const [scheduleInput, setScheduleInput] = useState<ScheduleInput>(defaultScheduleInput);
   const [beneficiary, setBeneficiary] = useState('');
 
-  // a pasted contract address loads that token
-  useEffect(() => {
-    const a = pasted.trim();
-    if (!isAddress(a, { strict: false })) return;
-    readAsset(a as `0x${string}`, wallet).then((found) => {
-      if (found) setAsset(found);
-      else toast({ description: "that address isn't a token on base", variant: 'destructive' });
-    });
-  }, [pasted, wallet]);
-
-  const options: Asset[] = useMemo(
-    () => [
-      ...(lps ?? []).map((p) => ({ address: p.address, symbol: p.symbol, decimals: p.decimals, balance: p.balance, isLP: true })),
-      ...(tokens ?? []).map((t) => ({ address: t.address, symbol: t.symbol, decimals: t.decimals, balance: t.balance, isLP: false })),
-    ],
-    [lps, tokens],
-  );
-
   const now = Math.floor(Date.now() / 1000);
-  const unlockTime = Math.floor(new Date(`${unlockDate}T${unlockClock || '00:00'}`).getTime() / 1000) || 0;
-  const schedule: Schedule = {
-    kind,
-    start: now,
-    cliff: kind === 'fixed' ? unlockTime : kind === 'cliffLinear' ? now + cliffDays * DAY : 0,
-    duration: kind === 'cliffLinear' ? vestDays * DAY : kind === 'steps' ? stepDays * DAY : 0,
-    steps: kind === 'steps' ? steps : 0,
-  };
-
-  let amountWei: bigint | null = null;
-  try {
-    amountWei = asset && amount ? parseUnits(amount, asset.decimals) : null;
-  } catch {
-    amountWei = null;
-  }
+  const { schedule, problem: scheduleProblem, params } = resolveSchedule(scheduleInput, now);
+  const amountWei = parseAmount(amount, asset?.decimals);
   const owner = (beneficiary.trim() || wallet) as `0x${string}`;
 
   const problem = !asset
@@ -320,30 +308,7 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         ? `you only have ${formatUnits(asset.balance, asset.decimals)} ${asset.symbol}`
         : !isAddress(owner, { strict: false })
           ? 'beneficiary must be a wallet address'
-          : kind === 'fixed' && !(unlockTime >= now + MIN_LEAD && unlockTime - now <= MAX_SPAN)
-            ? 'pick an unlock time at least 5 minutes from now'
-            : kind === 'cliffLinear' && !(vestDays > 0 && cliffDays >= 0 && (cliffDays + vestDays) * DAY <= MAX_SPAN)
-              ? 'unlock length must be at least a day'
-              : kind === 'steps' && !(steps >= 1 && steps <= 1000 && stepDays > 0 && steps * stepDays * DAY <= MAX_SPAN)
-                ? 'steps must be between 1 and 1000'
-                : fee === undefined
-                  ? 'loading the fee...'
-                  : null;
-
-  const { data: allowance, refetch: refetchAllowance } = useAllowance(asset?.address, wallet);
-  const needsApproval = !!amountWei && (allowance ?? 0n) < amountWei;
-
-  const approve = async () => {
-    try {
-      await send('approving', {
-        to: asset!.address,
-        data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [FACTORY, amountWei!] }),
-      });
-      await refetchAllowance();
-    } catch (e) {
-      toast({ description: txErrorMessage(e, 'approval failed'), variant: 'destructive' });
-    }
-  };
+          : (scheduleProblem ?? (fee === undefined ? 'loading the fee...' : null));
 
   const create = async () => {
     try {
@@ -353,34 +318,10 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         data: encodeFunctionData({
           abi: TIMELOCK_FACTORY_ABI,
           functionName: 'createLock',
-          args: [
-            {
-              token: asset!.address,
-              amount: amountWei!,
-              owner,
-              feeReceiver: owner,
-              kind: KIND_INDEX[kind],
-              unlockTime: BigInt(kind === 'fixed' ? unlockTime : 0),
-              cliffDuration: BigInt(kind === 'cliffLinear' ? cliffDays * DAY : 0),
-              duration: BigInt(schedule.duration),
-              steps: kind === 'steps' ? steps : 0,
-            },
-          ],
+          args: [{ token: asset!.address, amount: amountWei!, owner, feeReceiver: owner, kind: KIND_INDEX[scheduleInput.kind], ...params }],
         }),
       });
-      let vault: string | undefined;
-      for (const log of receipt.logs as unknown as { address: string; data: `0x${string}`; topics: [`0x${string}`, ...`0x${string}`[]] }[]) {
-        if (log.address.toLowerCase() !== FACTORY.toLowerCase()) continue;
-        try {
-          const event = decodeEventLog({ abi: TIMELOCK_FACTORY_ABI, data: log.data, topics: log.topics }) as {
-            eventName: string;
-            args: unknown;
-          };
-          if (event.eventName === 'LockCreated') vault = (event.args as { vault: string }).vault;
-        } catch {
-          // another event
-        }
-      }
+      const [vault] = factoryEvents(receipt.logs).vaults;
       toast({ description: 'locked 🔒' });
       queryClient.invalidateQueries({ queryKey: ['timelock-vaults'] });
       // show the new lock as verified source on Basescan; best effort, never blocks the user
@@ -391,44 +332,17 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
     }
   };
 
-  const feeUsd = fee !== undefined && ethPrice ? Number(formatEther(fee)) * ethPrice : null;
-
   return (
-    <section className="border border-border bg-card p-4 sm:p-5 space-y-6">
-      <h2 className="text-sm font-semibold tracking-tight">new timed lock</h2>
-
-      {/* asset */}
+    <div className="space-y-6">
       <div className="space-y-2">
         <Label className="text-xs">what to lock</Label>
-        <div className="max-h-56 overflow-y-auto border border-border divide-y divide-border">
-          {options.length === 0 && <p className="px-3 py-4 text-xs text-muted-foreground">no tokens found - paste a contract address below</p>}
-          {options.map((o) => (
-            <button
-              key={o.address}
-              type="button"
-              onClick={() => {
-                setAsset(o);
-                setAmount('');
-              }}
-              className={cn(
-                'flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-xs transition-colors',
-                asset?.address === o.address ? 'bg-foreground text-background' : 'hover:bg-muted',
-              )}
-            >
-              <span className="truncate font-medium">
-                {o.symbol} {o.isLP && <span className="font-mono text-[10px] opacity-70">· lp</span>}
-              </span>
-              <span className="font-mono shrink-0 opacity-80">
-                {Number(formatUnits(o.balance, o.decimals)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-              </span>
-            </button>
-          ))}
-        </div>
-        <Input
-          placeholder="or paste a token / lp address 0x…"
-          value={pasted}
-          onChange={(e) => setPasted(e.target.value)}
-          className="font-mono text-base sm:text-xs"
+        <AssetPicker
+          wallet={wallet}
+          value={asset}
+          onChange={(a) => {
+            setAsset(a);
+            setAmount('');
+          }}
         />
       </div>
 
@@ -447,78 +361,10 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         </div>
       )}
 
-      {/* schedule */}
       <div className="space-y-3">
         <Label className="text-xs">unlock schedule</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {KINDS.map(({ kind: k, label, hint, icon: Icon }) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setKind(k)}
-              className={cn(
-                'border p-2.5 text-left space-y-1 transition-colors',
-                k === kind ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-foreground/50',
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <p className="text-[11px] font-medium leading-tight">{label}</p>
-              <p className="hidden sm:block text-[10px] opacity-70 leading-tight">{hint}</p>
-            </button>
-          ))}
-        </div>
-
-        {kind === 'fixed' && (
-          <div className="space-y-2">
-            <p className="text-[11px] text-muted-foreground">unlock date and time - you can push it later afterwards, never earlier</p>
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                aria-label="unlock date"
-                value={unlockDate}
-                min={format(new Date(), 'yyyy-MM-dd')}
-                onChange={(e) => setUnlockDate(e.target.value)}
-                className="text-base sm:text-sm flex-1 sm:flex-none sm:w-44"
-              />
-              <Input
-                type="time"
-                aria-label="unlock time"
-                value={unlockClock}
-                onChange={(e) => setUnlockClock(e.target.value)}
-                className="text-base sm:text-sm w-32"
-              />
-            </div>
-            {unlockTime > now && (
-              <p className="text-[11px] text-muted-foreground">unlocks {format(unlockTime * 1000, "EEE MMM d, yyyy 'at' h:mm a")} (your time)</p>
-            )}
-          </div>
-        )}
-        {kind === 'cliffLinear' && (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">cliff - nothing unlocks before</p>
-              <Chips values={[0, 30, 90, 180, 365]} value={cliffDays} onChange={setCliffDays} unit={(d) => (d === 0 ? 'none' : `${d}d`)} />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">then unlocks gradually over</p>
-              <Chips values={[30, 90, 180, 365, 730]} value={vestDays} onChange={setVestDays} unit={(d) => (d >= 365 ? `${d / 365}y` : `${d}d`)} />
-            </div>
-          </div>
-        )}
-        {kind === 'steps' && (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">number of equal parts</p>
-              <Chips values={[3, 6, 12, 24, 36]} value={steps} onChange={setSteps} unit={(n) => `${n}`} />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">one part every</p>
-              <Chips values={[7, 14, 30, 90]} value={stepDays} onChange={setStepDays} unit={(d) => (d === 30 ? 'month' : d === 90 ? 'quarter' : `${d}d`)} />
-            </div>
-          </div>
-        )}
-
-        {(kind !== 'fixed' || unlockTime > now) && (
+        <ScheduleFields value={scheduleInput} onChange={setScheduleInput} />
+        {!scheduleProblem && (
           <div className="border border-border p-3 space-y-2">
             <p className="text-xs">{describeSchedule(schedule, fmtDate)}</p>
             <VestingChart schedule={schedule} total={amountWei ?? undefined} decimals={asset?.decimals} symbol={asset?.symbol} />
@@ -526,9 +372,10 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         )}
       </div>
 
-      {/* beneficiary */}
       <div className="space-y-2">
-        <Label className="text-xs">who receives it <span className="text-muted-foreground">(optional)</span></Label>
+        <Label className="text-xs">
+          who receives it <span className="text-muted-foreground">(optional)</span>
+        </Label>
         <Input
           placeholder={`you (${wallet.slice(0, 6)}…${wallet.slice(-4)}) - or a team member / investor wallet`}
           value={beneficiary}
@@ -537,37 +384,287 @@ function CreateLock({ wallet }: { wallet: `0x${string}` }) {
         />
       </div>
 
-      {/* pay */}
       <div className="space-y-3 border-t border-border pt-4">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">fee</span>
-          <span className="font-mono">
-            {fee === undefined ? '…' : fee === 0n ? 'free' : `${Number(formatEther(fee)).toFixed(5)} ETH`}
-            {feeUsd !== null && fee !== 0n && <span className="text-muted-foreground"> ≈ ${feeUsd.toFixed(0)}</span>}
-          </span>
+        <FeeLine fee={fee} />
+        <ApproveThen
+          asset={asset}
+          wallet={wallet}
+          total={amountWei}
+          problem={problem}
+          busy={busy}
+          send={send}
+          label={`lock ${amount} ${asset?.symbol ?? ''}`}
+          action={create}
+        />
+        <p className="text-[10px] text-muted-foreground leading-relaxed">{BUFFER_NOTE}</p>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------- team
+
+interface Member {
+  id: number;
+  wallet: string;
+  amount: string;
+  schedule: ScheduleInput;
+  editing: boolean;
+}
+
+let memberSeq = 0;
+const newMember = (schedule: ScheduleInput, wallet = '', amount = ''): Member => ({
+  id: ++memberSeq,
+  wallet,
+  amount,
+  schedule: { ...schedule },
+  editing: false,
+});
+
+const MAX_TEAM = 40;
+
+function TeamLock({ wallet }: { wallet: `0x${string}` }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { send, busy } = useBaseTx();
+
+  const [asset, setAsset] = useState<Asset | null>(null);
+  const [label, setLabel] = useState('team vesting');
+  const [members, setMembers] = useState<Member[]>(() => [{ ...newMember(defaultScheduleInput()), editing: true }]);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+
+  const { data: fee } = useTimelockBatchFee(wallet, members.length);
+  const now = Math.floor(Date.now() / 1000);
+
+  const update = (id: number, patch: Partial<Member>) => setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  const addMember = () =>
+    setMembers((ms) => [...ms.map((m) => ({ ...m, editing: false })), { ...newMember(ms[ms.length - 1]?.schedule ?? defaultScheduleInput()), editing: true }]);
+
+  // "0xabc…, 1000" per line; new rows copy the last row's schedule
+  const importList = () => {
+    const rows = pasteText
+      .split(/\n+/)
+      .map((line) => line.split(/[\s,;]+/).filter(Boolean))
+      .filter((cells) => cells.length >= 2 && isAddress(cells[0], { strict: false }));
+    if (rows.length === 0) return toast({ description: 'no "wallet, amount" lines found', variant: 'destructive' });
+    setMembers((ms) => {
+      const template = ms[ms.length - 1]?.schedule ?? defaultScheduleInput();
+      const kept = ms.filter((m) => m.wallet.trim() || m.amount.trim());
+      return [...kept, ...rows.map(([w, a]) => newMember(template, w, a))].slice(0, MAX_TEAM);
+    });
+    setPasteText('');
+    setPasteOpen(false);
+  };
+
+  const resolved = members.map((m) => ({ m, amount: parseAmount(m.amount, asset?.decimals), ...resolveSchedule(m.schedule, now) }));
+  const total = resolved.reduce((t, r) => t + (r.amount ?? 0n), 0n);
+  const badIndex = resolved.findIndex(
+    (r) => !isAddress(r.m.wallet.trim(), { strict: false }) || !r.amount || r.amount <= 0n || r.problem,
+  );
+  const bad = badIndex >= 0 ? resolved[badIndex] : null;
+
+  const problem = !asset
+    ? 'pick a token or lp'
+    : members.length > MAX_TEAM
+      ? `at most ${MAX_TEAM} wallets per batch`
+      : bad
+        ? !isAddress(bad.m.wallet.trim(), { strict: false })
+          ? `wallet ${badIndex + 1}: enter a valid address`
+          : !bad.amount || bad.amount <= 0n
+            ? `wallet ${badIndex + 1}: enter an amount`
+            : `wallet ${badIndex + 1}: ${bad.problem}`
+        : total > asset.balance
+          ? `total ${fmtAmount(total, asset.decimals)} is more than your ${fmtAmount(asset.balance, asset.decimals)} ${asset.symbol}`
+          : new TextEncoder().encode(label).length > 64
+            ? 'label is too long'
+            : fee === undefined
+              ? 'loading the fee...'
+              : null;
+
+  const create = async () => {
+    try {
+      const receipt = await send('locking', {
+        to: FACTORY,
+        value: fee! + (fee! * FEE_BUFFER_PERCENT) / 100n,
+        data: encodeFunctionData({
+          abi: TIMELOCK_FACTORY_ABI,
+          functionName: 'createLocks',
+          args: [
+            resolved.map((r) => ({
+              token: asset!.address,
+              amount: r.amount!,
+              owner: r.m.wallet.trim() as `0x${string}`,
+              feeReceiver: r.m.wallet.trim() as `0x${string}`,
+              kind: KIND_INDEX[r.m.schedule.kind],
+              ...r.params,
+            })),
+            label.trim(),
+          ],
+        }),
+      });
+      const { vaults, batchId } = factoryEvents(receipt.logs);
+      toast({ description: `${vaults.length} team locks created 🔒` });
+      queryClient.invalidateQueries({ queryKey: ['timelock-vaults'] });
+      queryClient.invalidateQueries({ queryKey: ['timelock-batches-of'] });
+      for (const vault of vaults) supabase.functions.invoke('verify-timelock', { body: { vaultAddress: vault } }).catch(() => undefined);
+      if (batchId !== undefined) navigate(`/team/${batchId}`);
+    } catch (e) {
+      toast({ description: txErrorMessage(e, 'team lock failed'), variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        each wallet gets its own lock with its own amount and schedule. members withdraw with their own wallet; nobody - including you - can take
+        anyone's tokens back or unlock them early.
+      </p>
+
+      <div className="space-y-2">
+        <Label className="text-xs">token or lp for the team</Label>
+        <AssetPicker wallet={wallet} value={asset} onChange={setAsset} />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-xs">name <span className="text-muted-foreground">(shown on the public team page)</span></Label>
+        <Input value={label} maxLength={64} onChange={(e) => setLabel(e.target.value)} className="text-base sm:text-sm" />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">
+            wallets <span className="text-muted-foreground">({members.length}/{MAX_TEAM})</span>
+          </Label>
+          <button type="button" onClick={() => setPasteOpen((o) => !o)} className="text-[11px] text-muted-foreground hover:text-foreground underline">
+            paste a list
+          </button>
         </div>
-        {problem ? (
-          <Button className="w-full text-xs" disabled>
-            {problem}
-          </Button>
-        ) : needsApproval ? (
-          <Button className="w-full text-xs" disabled={!!busy} onClick={approve}>
-            {busy === 'approving' ? 'approving...' : `1/2 · approve ${asset!.symbol}`}
-          </Button>
-        ) : (
-          <Button className="w-full text-xs" disabled={!!busy} onClick={create}>
-            {busy === 'locking' ? 'locking...' : `lock ${amount} ${asset!.symbol}`}
+
+        {pasteOpen && (
+          <div className="space-y-2 border border-border p-3">
+            <p className="text-[11px] text-muted-foreground">one per line: wallet, amount. new rows copy the last row's schedule.</p>
+            <Textarea
+              rows={5}
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              placeholder={'0x1234…abcd, 50000\n0x5678…ef01, 25000'}
+              className="font-mono text-base sm:text-xs"
+            />
+            <Button size="sm" variant="outline" className="text-xs" onClick={importList}>
+              add these wallets
+            </Button>
+          </div>
+        )}
+
+        <ul className="space-y-2">
+          {resolved.map(({ m, amount, schedule, problem: rowProblem }, i) => (
+            <li key={m.id} className="border border-border p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] text-muted-foreground">#{i + 1}</span>
+                {members.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label={`remove wallet ${i + 1}`}
+                    onClick={() => setMembers((ms) => ms.filter((x) => x.id !== m.id))}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  placeholder="wallet 0x…"
+                  value={m.wallet}
+                  onChange={(e) => update(m.id, { wallet: e.target.value })}
+                  className="font-mono text-base sm:text-xs sm:flex-[3]"
+                />
+                <Input
+                  inputMode="decimal"
+                  placeholder={`amount${asset ? ` of ${asset.symbol}` : ''}`}
+                  value={m.amount}
+                  onChange={(e) => update(m.id, { amount: e.target.value })}
+                  className="font-mono text-base sm:text-xs sm:flex-[2]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => update(m.id, { editing: !m.editing })}
+                className="flex w-full items-center justify-between gap-2 text-left text-[11px]"
+              >
+                <span className={cn('truncate', rowProblem ? 'text-amber-500' : 'text-muted-foreground')}>
+                  {rowProblem ?? describeSchedule(schedule, fmtDate)}
+                  {!rowProblem && amount && asset && ` · ${fmtAmount(amount, asset.decimals)} ${asset.symbol}`}
+                </span>
+                <span className="shrink-0 underline">{m.editing ? 'done' : 'edit schedule'}</span>
+              </button>
+              {m.editing && <ScheduleFields value={m.schedule} onChange={(schedule) => update(m.id, { schedule })} />}
+            </li>
+          ))}
+        </ul>
+        {members.length < MAX_TEAM && (
+          <Button type="button" variant="outline" size="sm" className="w-full text-xs" onClick={addMember}>
+            <Plus className="h-3.5 w-3.5" /> add wallet
           </Button>
         )}
-        <p className="text-[10px] text-muted-foreground leading-relaxed">
-          a few % extra ETH is sent to cover price moves while you sign; the contract refunds everything above the fee in the same transaction.
-        </p>
       </div>
-    </section>
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">total to lock</span>
+          <span className="font-mono">{asset ? `${fmtAmount(total, asset.decimals)} ${asset.symbol}` : '…'}</span>
+        </div>
+        <FeeLine fee={fee} note={`$150 + $25 × ${Math.max(members.length - 1, 0)} extra`} />
+        <ApproveThen
+          asset={asset}
+          wallet={wallet}
+          total={total > 0n ? total : null}
+          problem={problem}
+          busy={busy}
+          send={send}
+          label={`lock for ${members.length} wallet${members.length === 1 ? '' : 's'}`}
+          action={create}
+        />
+        <p className="text-[10px] text-muted-foreground leading-relaxed">{BUFFER_NOTE}</p>
+      </div>
+    </div>
   );
 }
 
 // ----------------------------------------------------------------- list
+
+function MyTeams({ wallet }: { wallet: `0x${string}` }) {
+  const { data: ids } = useTeamBatchesOf(wallet);
+  if (!ids?.length) return null;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold tracking-tight">your team vestings</h2>
+      <ul className="divide-y divide-border border border-border">
+        {ids.map((id) => (
+          <TeamRow key={id} id={id} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TeamRow({ id }: { id: number }) {
+  const { data: team } = useTeamBatch(id);
+  return (
+    <li>
+      <Link to={`/team/${id}`} className="flex items-center justify-between gap-3 px-4 py-3 text-xs hover:bg-muted transition-colors">
+        <div className="min-w-0 space-y-0.5">
+          <p className="font-medium truncate">{team?.label || 'team vesting'}</p>
+          <p className="text-muted-foreground">
+            {team ? `${team.vaults.length} wallet${team.vaults.length === 1 ? '' : 's'} · ${format(team.createdAt * 1000, 'MMM d, yyyy')}` : '…'}
+          </p>
+        </div>
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      </Link>
+    </li>
+  );
+}
 
 function MyVaults({ wallet }: { wallet: `0x${string}` }) {
   const { data: vaults, isLoading } = useTimelockVaults(wallet);

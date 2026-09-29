@@ -52,6 +52,7 @@ contract Deploy is Script {
             owner,
             treasury,
             feeUsd,
+            25e8, // $25 per extra lock in a team batch
             IAerodromePoolFactory(aero),
             AggregatorV3Interface(priceFeed),
             AggregatorV3Interface(sequencer)
