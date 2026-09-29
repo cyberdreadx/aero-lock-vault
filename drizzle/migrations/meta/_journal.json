@@ -15,6 +15,13 @@
       "when": 1790533161786,
       "tag": "0001_create_affiliate_referrals",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790708966678,
+      "tag": "0002_affiliate_referral_product",
+      "breakpoints": true
     }
   ]
 }
