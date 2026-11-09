@@ -53,6 +53,7 @@ serve(async (req) => {
     const result = await submitLockerVerification(
       locker.locker_address,
       lockerConstructorArgs(lockerInfo.tokenContract, lockerInfo.owner, lockerInfo.feeReceiver),
+      lockerInfo.version,
     );
     return json(result, result.status === 'failed' ? 502 : 200);
   } catch (error) {

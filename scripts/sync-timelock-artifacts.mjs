@@ -18,12 +18,18 @@ const args = {
   treasury: TREASURY,
   feeUsd: 150n * 10n ** 8n, // $150
   feePerExtraLockUsd: 25n * 10n ** 8n, // +$25 per extra wallet in a team batch
-  aerodromeFactory: '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
+  // LP from these pool factories gets fee claiming: legacy Aerodrome, Aero volatile, Aero stable
+  poolFactories: [
+    '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
+    '0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2',
+    '0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D',
+  ],
   priceFeed: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70', // Chainlink ETH/USD on Base
   sequencerFeed: '0xBCF85224fc0756B9Fa45aA7892530B47e10b6433', // Chainlink Base sequencer uptime
 };
-// v2 added createLocks (team vesting); v1 lives on at 0x07E05724Be95Ea989F66471F822fB489aCFb83ea
-const SALT = keccak256(toHex('aerolock.timelock.v2'));
+// v3 recognises Aero pools and claims their fees; v2 (team vesting) lives on at
+// 0xE31833bD08d8833a621a042F0Cc27E0ACa1B4d50 and v1 at 0x07E05724Be95Ea989F66471F822fB489aCFb83ea
+const SALT = keccak256(toHex('aerolock.timelock.v3'));
 const CREATE2_DEPLOYER = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
 const encodedArgs = encodeAbiParameters(
@@ -32,11 +38,11 @@ const encodedArgs = encodeAbiParameters(
     { type: 'address' },
     { type: 'uint256' },
     { type: 'uint256' },
-    { type: 'address' },
+    { type: 'address[3]' },
     { type: 'address' },
     { type: 'address' },
   ],
-  [args.owner, args.treasury, args.feeUsd, args.feePerExtraLockUsd, args.aerodromeFactory, args.priceFeed, args.sequencerFeed],
+  [args.owner, args.treasury, args.feeUsd, args.feePerExtraLockUsd, args.poolFactories, args.priceFeed, args.sequencerFeed],
 );
 const initCode = factory.bytecode.object + encodedArgs.slice(2);
 const address = getContractAddress({ opcode: 'CREATE2', from: CREATE2_DEPLOYER, salt: SALT, bytecode: initCode });

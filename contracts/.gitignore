@@ -3,3 +3,5 @@ out/
 broadcast/*/31337/
 lib/
 .env
+out-locker/
+cache-locker/

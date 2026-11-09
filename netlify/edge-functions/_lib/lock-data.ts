@@ -15,7 +15,12 @@ const RPC_URLS = [
   'https://1rpc.io/base',
   'https://mainnet.base.org',
 ];
-const AERODROME_FACTORY = '0x420DD381b31aEf6683db6B902084cB0FFECe40Da';
+// Aerodrome (legacy) and Aero's volatile and stable pool factories (Aero launched Oct 22 2026)
+const POOL_FACTORIES = [
+  '0x420DD381b31aEf6683db6B902084cB0FFECe40Da',
+  '0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2',
+  '0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D',
+] as const;
 
 const client = createPublicClient({
   chain: base,
@@ -63,7 +68,9 @@ export async function readLockCardData(locker: string): Promise<LockCardData | n
     const [symbol, decimals, isPool, infos] = await Promise.all([
       client.readContract({ address: token, abi: ERC20, functionName: 'symbol' }).catch(() => 'tokens'),
       client.readContract({ address: token, abi: ERC20, functionName: 'decimals' }).catch(() => 18),
-      client.readContract({ address: AERODROME_FACTORY, abi: FACTORY, functionName: 'isPool', args: [token] }).catch(() => false),
+      Promise.all(
+        POOL_FACTORIES.map((f) => client.readContract({ address: f, abi: FACTORY, functionName: 'isPool', args: [token] }).catch(() => false)),
+      ).then((answers) => answers.some(Boolean)),
       Promise.all(ids.map((id) => client.readContract({ address, abi: LOCKER, functionName: 'getLockInfo', args: [id] }))),
     ]);
 
@@ -89,7 +96,7 @@ export async function readLockCardData(locker: string): Promise<LockCardData | n
     return {
       locker: address,
       kind: isPool ? 'lp' : 'token',
-      asset: isPool ? String(symbol).replace(/^[sv]AMM-/, '') : String(symbol),
+      asset: isPool ? String(symbol).replace(/^[sv]AMM(V2)?-/, '') : String(symbol),
       amount: formatAmount(balance, Number(decimals)),
       status,
       unlocksAt,

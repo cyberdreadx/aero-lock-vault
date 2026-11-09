@@ -21,8 +21,12 @@ const corsHeaders = {
 const TREASURY_ADDRESS = '0xc0dca68EFdCC63aD109B301585b4b8E38cAe344e';
 const ADMIN_WALLETS = [TREASURY_ADDRESS.toLowerCase()];
 const AFFILIATE_COMMISSION_PERCENT = 20n;
-// current factory first; v1 (no team batches) stays valid
-const FACTORIES = [TIMELOCK_FACTORY_ADDRESS, '0x07E05724Be95Ea989F66471F822fB489aCFb83ea'].map((f) => f.toLowerCase());
+// current factory first; v2 and v1 stay valid
+const FACTORIES = [
+  TIMELOCK_FACTORY_ADDRESS,
+  '0xE31833bD08d8833a621a042F0Cc27E0ACa1B4d50',
+  '0x07E05724Be95Ea989F66471F822fB489aCFb83ea',
+].map((f) => f.toLowerCase());
 // hex of ascii "aeref:" followed by a 20-byte address
 const REFERRAL_TAG = /61657265663a([0-9a-f]{40})/;
 

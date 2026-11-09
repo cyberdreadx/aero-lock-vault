@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAccount, useReadContract, useWaitForTransactionReceipt, useDeployContract, useSendTransaction, useSwitchChain } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, useDeployContract, useSendTransaction, useSwitchChain } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ConnectGate } from '@/components/layout/ConnectGate';
@@ -13,21 +13,21 @@ import { toast } from '@/hooks/use-toast';
 import { useSaveDeployedLocker } from '@/hooks/useDeployedLockers';
 import { useTokenMetadata, useTokenBalance } from '@/hooks/web3/useERC20';
 import { useEthPrice, calculateEthAmount } from '@/hooks/useEthPrice';
-import { concat, encodeDeployData, formatUnits, getContractAddress, isAddress, parseAbi, parseEther, toHex } from 'viem';
+import { concat, encodeDeployData, formatUnits, getContractAddress, isAddress, parseEther, toHex } from 'viem';
 import { useQuery } from '@tanstack/react-query';
 import { baseClient } from '@/lib/web3/baseReads';
 import { useLpPositions } from '@/hooks/web3/useLpPositions';
 import { useWalletTokens } from '@/hooks/web3/useWalletTokens';
-import type { LockKind } from '@/hooks/web3/useTokenKind';
+import { useTokenKind, type LockKind } from '@/hooks/web3/useTokenKind';
+import { LP_SYMBOL_PREFIX } from '@/lib/web3/aeroPools';
 import { checkTransferTax } from '@/lib/web3/transferTax';
 import { formatTokenAmount } from '@/lib/web3/utils';
 import { LP_LOCKER_BYTECODE, LP_LOCKER_CONSTRUCTOR_ABI } from '@/lib/web3/LPLockerBytecode';
 import { txErrorMessage } from '@/lib/web3/txError';
-import { AERODROME, DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
+import { DEPLOYMENT_FEE_USD, DEPLOYMENT_FEE_ORIGINAL_USD, TREASURY_ADDRESS, isAdminWallet } from '@/lib/web3/constants';
 import { Check } from 'lucide-react';
 import { AddressDisplay } from '@/components/web3/AddressDisplay';
 
-const AERODROME_FACTORY_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
 // Arachnid's deterministic deployment proxy (calldata = salt ++ initcode), deployed on Base
 const CREATE2_DEPLOYER = '0x4e59b44847b379578588920cA78FbF26c0B4956C' as const;
 
@@ -184,14 +184,9 @@ export default function DeployLocker() {
     isError: isPositionsError,
     refetch: refetchPositions,
   } = useLpPositions(address);
-  const { data: isAerodromePool } = useReadContract({
-    address: AERODROME.FACTORY as `0x${string}`,
-    abi: AERODROME_FACTORY_ABI,
-    functionName: 'isPool',
-    args: validLpAddress ? [validLpAddress] : undefined,
-    chainId: base.id,
-    query: { enabled: !!validLpAddress },
-  });
+  // Aerodrome or Aero pool (any of the pool factories)
+  const { data: pastedKind } = useTokenKind(validLpAddress);
+  const isAerodromePool = pastedKind === undefined ? undefined : pastedKind === 'lp';
   const { data: tokenBalance } = useTokenBalance(validLpAddress);
   const {
     tokens: walletTokens,
@@ -475,7 +470,7 @@ export default function DeployLocker() {
                             )}
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{pos.symbol.replace(/^[sv]AMM-/, '')}</p>
+                              <p className="truncate text-sm font-medium">{pos.symbol.replace(LP_SYMBOL_PREFIX, '')}</p>
                               <p className="font-mono text-[10px] text-muted-foreground">
                                 {pos.stable ? 'stable' : 'volatile'} · {pos.address.slice(0, 6)}...{pos.address.slice(-4)}
                               </p>

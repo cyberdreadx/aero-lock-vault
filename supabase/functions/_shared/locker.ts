@@ -10,10 +10,15 @@ import {
   parseAbi,
 } from 'https://esm.sh/viem@2.37.12';
 import { createBaseClient } from './rpc.ts';
+import { LOCKER_V2_FINGERPRINT } from './lockerV2.ts';
 
-// keccak256 of an LPLocker's runtime code with its immutable tokenContract zeroed.
-// Identical for every locker deployed so far (checked across all 4 on Base).
-const LOCKER_CODE_FINGERPRINT = '0xd7801788172eb22617bf0284ebd7d87610b4fc84872abae9179a02e8f1fbea98';
+// keccak256 of an LPLocker's runtime code with its immutable tokenContract zeroed, per version.
+// v1: every locker deployed before Aero launched (claims fees from legacy Aerodrome pools).
+// v2: claims fees from both legacy Aerodrome pools and Aero pools.
+const LOCKER_CODE_FINGERPRINTS: Record<string, 1 | 2> = {
+  '0xd7801788172eb22617bf0284ebd7d87610b4fc84872abae9179a02e8f1fbea98': 1,
+  [LOCKER_V2_FINGERPRINT]: 2,
+};
 
 // OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
 const OWNERSHIP_TRANSFERRED = '0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0';
@@ -33,7 +38,7 @@ const LOCKER_ABI = parseAbi([
 ]);
 
 export type LockerInspection =
-  | { ok: true; owner: string; tokenContract: string; feeReceiver: string }
+  | { ok: true; owner: string; tokenContract: string; feeReceiver: string; version: 1 | 2 }
   | { ok: false; reason: string };
 
 /** Confirms `deployReceipt` created `locker`, that it runs the AeroLock locker code, and returns its setup. */
@@ -73,11 +78,12 @@ export async function inspectLocker(locker: string, deployReceipt: DeployReceipt
 
   const tokenWord = tokenContract.toLowerCase().slice(2).padStart(64, '0');
   const masked = code.toLowerCase().split(tokenWord).join('0'.repeat(64)) as `0x${string}`;
-  if (keccak256(masked) !== LOCKER_CODE_FINGERPRINT) {
+  const version = LOCKER_CODE_FINGERPRINTS[keccak256(masked)];
+  if (!version) {
     return { ok: false, reason: 'This contract is not an AeroLock locker' };
   }
 
-  return { ok: true, owner, tokenContract: tokenContract.toLowerCase(), feeReceiver: feeReceiver.toLowerCase() };
+  return { ok: true, owner, tokenContract: tokenContract.toLowerCase(), feeReceiver: feeReceiver.toLowerCase(), version };
 }
 
 /** ABI-encoded constructor(tokenContract_, owner_, feeReceiver_) args, as Basescan expects them. */

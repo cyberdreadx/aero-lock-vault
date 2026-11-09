@@ -16,3 +16,15 @@ runs = 2000
 
 [rpc_endpoints]
 base = "https://base-rpc.publicnode.com"
+
+# The 30-day-notice LPLocker, built with the same settings as every deployed locker
+[profile.locker]
+src = "locker"
+test = "test-locker"
+script = "script-locker"
+out = "out-locker"
+cache_path = "cache-locker"
+solc_version = "0.8.20"
+evm_version = "shanghai"
+optimizer = false
+libs = ["lib"]
