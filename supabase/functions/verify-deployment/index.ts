@@ -222,6 +222,7 @@ serve(async (req) => {
       submitLockerVerification(
         lockerAddress,
         lockerConstructorArgs(lockerInfo.tokenContract, lockerInfo.owner, lockerInfo.feeReceiver),
+        lockerInfo.version,
       ),
     );
 

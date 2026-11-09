@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { decodeFunctionResult, encodeFunctionData, erc20Abi, parseAbi } from 'viem';
+import { decodeFunctionResult, encodeFunctionData, erc20Abi } from 'viem';
 import { multicallRead } from '@/lib/web3/baseReads';
-import { AERODROME } from '@/lib/web3/constants';
+import { decodeIsPool, isPoolCalls } from '@/lib/web3/aeroPools';
 import { fetchLockStates } from './useLockStatuses';
 
-const POOL_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
 
 export interface LockerSummary {
   symbol: string;
@@ -28,7 +27,7 @@ export function useLockerSummary(locker: `0x${string}`, token: `0x${string}`) {
           { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'symbol' }) },
           { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'decimals' }) },
           { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [locker] }) },
-          { target: AERODROME.FACTORY as `0x${string}`, callData: encodeFunctionData({ abi: POOL_ABI, functionName: 'isPool', args: [token] }) },
+          ...isPoolCalls(token),
         ]),
         fetchLockStates(locker),
       ]);
@@ -38,7 +37,7 @@ export function useLockerSummary(locker: `0x${string}`, token: `0x${string}`) {
         symbol: meta[0] ? decodeFunctionResult({ abi: erc20Abi, functionName: 'symbol', data: meta[0] }) : '???',
         decimals: meta[1] ? decodeFunctionResult({ abi: erc20Abi, functionName: 'decimals', data: meta[1] }) : 18,
         balance: meta[2] ? decodeFunctionResult({ abi: erc20Abi, functionName: 'balanceOf', data: meta[2] }) : 0n,
-        isLP: meta[3] ? decodeFunctionResult({ abi: POOL_ABI, functionName: 'isPool', data: meta[3] }) : false,
+        isLP: decodeIsPool(meta.slice(3)) ?? false,
         status:
           live.length === 0
             ? 'empty'

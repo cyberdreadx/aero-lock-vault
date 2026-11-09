@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { LP_SYMBOL_PREFIX } from '@/lib/web3/aeroPools';
 
 export type ShareStatus = 'locked' | 'pending' | 'withdrawable' | 'none';
 
@@ -9,9 +10,9 @@ const X_HANDLE = '@aerolockvault';
 // Aerodrome's account (rebranded to Aero)
 const AERO_HANDLE = '@aeroxyz';
 
-/** "vAMM-LNCTS/WETH" -> "LNCTS/WETH" */
+/** "vAMM-LNCTS/WETH" (or Aero's "vAMMV2-…") -> "LNCTS/WETH" */
 export function pairName(lpSymbol?: string): string {
-  return (lpSymbol ?? '').replace(/^[sv]AMM-/, '') || 'LP';
+  return (lpSymbol ?? '').replace(LP_SYMBOL_PREFIX, '') || 'LP';
 }
 
 /** The project's side of the pair as a cashtag when X would link it: "vAMM-LNCTS/WETH" -> "$LNCTS" */

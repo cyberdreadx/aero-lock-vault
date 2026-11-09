@@ -5,8 +5,9 @@ import { TIMELOCK_FACTORY_ABI, TIMELOCK_FACTORY_ADDRESS, TIMELOCK_VAULT_ABI } fr
 import { KIND_FROM_INDEX, type Schedule } from '@/lib/web3/timelock/schedule';
 
 const factory = TIMELOCK_FACTORY_ADDRESS as `0x${string}`;
-// earlier factories whose locks stay valid; v1 had no team batches but reads the same
-const LEGACY_FACTORIES = ['0x07E05724Be95Ea989F66471F822fB489aCFb83ea'] as const;
+// earlier factories whose locks stay valid: v2 (team vesting, legacy Aerodrome LP only) and
+// v1 (no team batches); both read the same
+const LEGACY_FACTORIES = ['0xE31833bD08d8833a621a042F0Cc27E0ACa1B4d50', '0x07E05724Be95Ea989F66471F822fB489aCFb83ea'] as const;
 const KNOWN_FACTORIES = [factory, ...LEGACY_FACTORIES].map((f) => f.toLowerCase());
 
 async function factoryCall<T>(functionName: string, args: unknown[] = [], to: `0x${string}` = factory): Promise<T> {

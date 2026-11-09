@@ -32,6 +32,25 @@ forge test                                            # unit + fuzz (2,000 runs 
 RUN_FORK=true forge test --match-contract Fork -vv    # against real Aerodrome on Base
 ```
 
+## Aero pools (Oct 2026+)
+
+Aero replaced Aerodrome's pool factory with new volatile and stable factories and changed fee
+claiming to `claimFees(recipient)`. Legacy Aerodrome pools stay live. Both contracts handle both:
+
+- `AeroLockFactory` (v3) recognises LP from the legacy Aerodrome factory and both Aero factories.
+- `AeroVestingVault.claimFees` tries `claimFees(feeReceiver)` (Aero) and falls back to the
+  legacy `claimFees()` + forward.
+- `locker/LPLocker.sol` (the 30-day-notice locker, v2, `VERSION = 2`) does the same in
+  `claimLPFees`. Build it with `FOUNDRY_PROFILE=locker forge build` (solc 0.8.20, shanghai,
+  optimizer off - the settings every deployed locker uses), then `npm run sync:locker`.
+
+Fork tests cover a real legacy pool and a real Aero pool for both:
+
+```shell
+RUN_FORK=true forge test --match-contract Fork -vv
+RUN_FORK=true FOUNDRY_PROFILE=locker forge test -vv
+```
+
 ## Team vesting (batches)
 
 `createLocks(CreateParams[], label)` makes up to 40 locks in one transaction - e.g. a team,

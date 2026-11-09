@@ -34,8 +34,11 @@ contract AeroLockFactory is Ownable2Step, ReentrancyGuard {
 
     /// @notice Vault logic every lock clones.
     address public immutable implementation;
-    /// @notice Aerodrome v2 pool factory, used to recognise LP tokens.
-    IAerodromePoolFactory public immutable aerodromeFactory;
+    /// @notice Pool factories whose LP tokens are recognised (fee claiming enabled): the legacy
+    ///         Aerodrome factory and Aero's volatile and stable factories. Unused slots are zero.
+    IAerodromePoolFactory public immutable poolFactory0;
+    IAerodromePoolFactory public immutable poolFactory1;
+    IAerodromePoolFactory public immutable poolFactory2;
     /// @notice Chainlink ETH/USD feed used to price the fee.
     AggregatorV3Interface public immutable priceFeed;
     /// @notice Chainlink L2 sequencer uptime feed; zero where none exists (e.g. testnets).
@@ -123,13 +126,15 @@ contract AeroLockFactory is Ownable2Step, ReentrancyGuard {
         address treasury_,
         uint256 feeUsd_,
         uint256 feePerExtraLockUsd_,
-        IAerodromePoolFactory aerodromeFactory_,
+        IAerodromePoolFactory[3] memory poolFactories_,
         AggregatorV3Interface priceFeed_,
         AggregatorV3Interface sequencerFeed_
     ) Ownable(initialOwner) {
-        if (treasury_ == address(0) || address(aerodromeFactory_) == address(0) || address(priceFeed_) == address(0)) revert ZeroAddress();
+        if (treasury_ == address(0) || address(poolFactories_[0]) == address(0) || address(priceFeed_) == address(0)) revert ZeroAddress();
         implementation = address(new AeroVestingVault());
-        aerodromeFactory = aerodromeFactory_;
+        poolFactory0 = poolFactories_[0];
+        poolFactory1 = poolFactories_[1];
+        poolFactory2 = poolFactories_[2];
         priceFeed = priceFeed_;
         sequencerFeed = sequencerFeed_;
         _priceDecimals = priceFeed_.decimals();
@@ -345,7 +350,12 @@ contract AeroLockFactory is Ownable2Step, ReentrancyGuard {
     }
 
     function _isAerodromePool(address token) internal view returns (bool) {
-        try aerodromeFactory.isPool(token) returns (bool yes) {
+        return _isPoolOf(poolFactory0, token) || _isPoolOf(poolFactory1, token) || _isPoolOf(poolFactory2, token);
+    }
+
+    function _isPoolOf(IAerodromePoolFactory f, address token) internal view returns (bool) {
+        if (address(f) == address(0)) return false;
+        try f.isPool(token) returns (bool yes) {
             return yes;
         } catch {
             return false;

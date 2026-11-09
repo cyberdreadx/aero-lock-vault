@@ -1,6 +1,7 @@
 // Submits contract sources to Basescan (Etherscan v2 API) so they show as verified.
 // Needs the BASESCAN_API_KEY secret (an Etherscan API key works: v2 covers Base).
 import { LOCKER_SOURCE } from './lockerSource.ts';
+import { LOCKER_V2_COMPILER_VERSION, LOCKER_V2_CONTRACT_NAME, LOCKER_V2_STANDARD_INPUT } from './lockerV2.ts';
 
 const API_URL = 'https://api.etherscan.io/v2/api?chainid=8453';
 
@@ -18,7 +19,17 @@ export type VerifyResult =
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function submitLockerVerification(lockerAddress: string, constructorArgs: string): Promise<VerifyResult> {
+/** Verifies a locker with the source of its version (v1 single file, v2 standard JSON). */
+export function submitLockerVerification(lockerAddress: string, constructorArgs: string, version: 1 | 2 = 1): Promise<VerifyResult> {
+  if (version === 2) {
+    return submitStandardJsonVerification({
+      address: lockerAddress,
+      contractName: LOCKER_V2_CONTRACT_NAME,
+      standardInput: LOCKER_V2_STANDARD_INPUT,
+      compilerVersion: LOCKER_V2_COMPILER_VERSION,
+      constructorArgs,
+    });
+  }
   return submitVerification(lockerAddress, {
     action: 'verifysourcecode',
     contractaddress: lockerAddress,

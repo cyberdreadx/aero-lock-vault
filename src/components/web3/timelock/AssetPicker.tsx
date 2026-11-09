@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { decodeFunctionResult, encodeFunctionData, erc20Abi, formatUnits, isAddress, parseAbi } from 'viem';
+import { decodeFunctionResult, encodeFunctionData, erc20Abi, formatUnits, isAddress } from 'viem';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { useLpPositions } from '@/hooks/web3/useLpPositions';
 import { useWalletTokens } from '@/hooks/web3/useWalletTokens';
 import { multicallRead } from '@/lib/web3/baseReads';
-import { AERODROME } from '@/lib/web3/constants';
+import { decodeIsPool, isPoolCalls } from '@/lib/web3/aeroPools';
 import { cn } from '@/lib/utils';
 
 export interface Asset {
@@ -16,14 +16,12 @@ export interface Asset {
   isLP: boolean;
 }
 
-const POOL_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
-
 async function readAsset(token: `0x${string}`, wallet: `0x${string}`): Promise<Asset | null> {
   const r = await multicallRead([
     { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'symbol' }) },
     { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'decimals' }) },
     { target: token, callData: encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [wallet] }) },
-    { target: AERODROME.FACTORY as `0x${string}`, callData: encodeFunctionData({ abi: POOL_ABI, functionName: 'isPool', args: [token] }) },
+    ...isPoolCalls(token),
   ]);
   if (!r[1] || !r[2]) return null;
   return {
@@ -31,7 +29,7 @@ async function readAsset(token: `0x${string}`, wallet: `0x${string}`): Promise<A
     symbol: r[0] ? decodeFunctionResult({ abi: erc20Abi, functionName: 'symbol', data: r[0] }) : '???',
     decimals: decodeFunctionResult({ abi: erc20Abi, functionName: 'decimals', data: r[1] }),
     balance: decodeFunctionResult({ abi: erc20Abi, functionName: 'balanceOf', data: r[2] }),
-    isLP: r[3] ? decodeFunctionResult({ abi: POOL_ABI, functionName: 'isPool', data: r[3] }) : false,
+    isLP: decodeIsPool(r.slice(3)) ?? false,
   };
 }
 

@@ -188,14 +188,21 @@ contract AeroVestingVault is Initializable, ReentrancyGuard {
     function claimFees() external nonReentrant returns (uint256 amount0, uint256 amount1) {
         if (!isLP) revert NotLP();
         IAerodromePool pool = IAerodromePool(address(token));
-        pool.claimFees();
-        IERC20 token0 = IERC20(pool.token0());
-        IERC20 token1 = IERC20(pool.token1());
-        amount0 = token0.balanceOf(address(this));
-        amount1 = token1.balanceOf(address(this));
-        if (amount0 > 0) token0.safeTransfer(feeReceiver, amount0);
-        if (amount1 > 0) token1.safeTransfer(feeReceiver, amount1);
-        emit FeesClaimed(feeReceiver, amount0, amount1);
+        address receiver = feeReceiver;
+        // Aero pools pay fees straight to a recipient. Legacy Aerodrome pools have no such
+        // function, so the call reverts and we claim the legacy way and forward the tokens.
+        try pool.claimFees(receiver) returns (uint256 claimed0, uint256 claimed1) {
+            (amount0, amount1) = (claimed0, claimed1);
+        } catch {
+            pool.claimFees();
+            IERC20 token0 = IERC20(pool.token0());
+            IERC20 token1 = IERC20(pool.token1());
+            amount0 = token0.balanceOf(address(this));
+            amount1 = token1.balanceOf(address(this));
+            if (amount0 > 0) token0.safeTransfer(receiver, amount0);
+            if (amount1 > 0) token1.safeTransfer(receiver, amount1);
+        }
+        emit FeesClaimed(receiver, amount0, amount1);
     }
 
     // --------------------------------------------------------------- ownership

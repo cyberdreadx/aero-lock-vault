@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "sync:locker-source": "node scripts/sync-locker-source.mjs",
-    "sync:timelock": "node scripts/sync-timelock-artifacts.mjs"
+    "sync:timelock": "node scripts/sync-timelock-artifacts.mjs",
+    "sync:locker": "node scripts/sync-locker-artifacts.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

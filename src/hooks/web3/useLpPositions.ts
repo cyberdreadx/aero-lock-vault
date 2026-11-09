@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { decodeFunctionResult, encodeFunctionData, parseAbi } from 'viem';
 import { multicallRead } from '@/lib/web3/baseReads';
-import { AERODROME } from '@/lib/web3/constants';
+import { decodeIsPool, isPoolCalls, isStableSymbol } from '@/lib/web3/aeroPools';
 
 export interface LpPosition {
   address: `0x${string}`;
@@ -24,7 +24,8 @@ interface BlockscoutTokenBalance {
 }
 
 const BLOCKSCOUT_URL = 'https://base.blockscout.com/api/v2/addresses';
-const FACTORY_ABI = parseAbi(['function isPool(address pool) view returns (bool)']);
+// isPool on each pool factory, then balanceOf
+const PER_TOKEN = 4;
 const ERC20_BALANCE_ABI = parseAbi(['function balanceOf(address account) view returns (uint256)']);
 
 /** Aerodrome LP tokens held by `wallet`, largest balance first. */
@@ -49,14 +50,11 @@ export async function fetchLpPositions(wallet: `0x${string}`): Promise<LpPositio
     });
   if (candidates.length === 0) return [];
 
-  // One batched call: is it an Aerodrome pool (factory), and the live balance
+  // One batched call: is it an Aerodrome/Aero pool (each factory), and the live balance
   // (Blockscout's balances can lag, e.g. right after LP moves into a locker).
   const results = await multicallRead(
     candidates.flatMap((t) => [
-      {
-        target: AERODROME.FACTORY as `0x${string}`,
-        callData: encodeFunctionData({ abi: FACTORY_ABI, functionName: 'isPool', args: [t.address] }),
-      },
+      ...isPoolCalls(t.address),
       {
         target: t.address,
         callData: encodeFunctionData({ abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [wallet] }),
@@ -66,12 +64,11 @@ export async function fetchLpPositions(wallet: `0x${string}`): Promise<LpPositio
 
   return candidates
     .flatMap((t, i) => {
-      const poolData = results[i * 2];
-      const balanceData = results[i * 2 + 1];
-      if (!poolData || !balanceData) return [];
-      if (!decodeFunctionResult({ abi: FACTORY_ABI, functionName: 'isPool', data: poolData })) return [];
+      const row = results.slice(i * PER_TOKEN, (i + 1) * PER_TOKEN);
+      const balanceData = row[PER_TOKEN - 1];
+      if (!balanceData || !decodeIsPool(row.slice(0, PER_TOKEN - 1))) return [];
       const balance = decodeFunctionResult({ abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', data: balanceData });
-      return balance > 0n ? [{ ...t, balance, stable: t.symbol.startsWith('sAMM') }] : [];
+      return balance > 0n ? [{ ...t, balance, stable: isStableSymbol(t.symbol) }] : [];
     })
     .sort((a, b) => (a.balance > b.balance ? -1 : 1));
 }

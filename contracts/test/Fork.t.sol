@@ -20,6 +20,9 @@ contract ForkTest is Test {
     address constant POOL = 0xcDAC0d6c6C59727a65F871236188350531885C43; // vAMM-WETH/USDC
     address constant WETH = 0x4200000000000000000000000000000000000006;
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    IAerodromePoolFactory constant AERO_VOLATILE = IAerodromePoolFactory(0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2);
+    IAerodromePoolFactory constant AERO_STABLE = IAerodromePoolFactory(0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D);
+    address constant AERO_POOL = 0x800EB395B577B234C5065c8E0cCb0F3A1401B2c2; // vAMMV2-WETH/USDC
     AggregatorV3Interface constant ETH_USD = AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70);
     AggregatorV3Interface constant SEQUENCER = AggregatorV3Interface(0xBCF85224fc0756B9Fa45aA7892530B47e10b6433);
 
@@ -35,11 +38,22 @@ contract ForkTest is Test {
         // a fresh address: common labels like "treasury" are real wallets on Base mainnet
         address treasury = makeAddr("aerolock-fork-test-treasury");
         require(treasury.code.length == 0 && treasury.balance == 0, "treasury address in use on Base");
-        factory = new AeroLockFactory(address(this), treasury, 0, 25e8, AERO_FACTORY, ETH_USD, SEQUENCER);
+        factory = new AeroLockFactory(
+            address(this), treasury, 0, 25e8, [AERO_FACTORY, AERO_VOLATILE, AERO_STABLE], ETH_USD, SEQUENCER
+        );
     }
 
     function test_fork_realPoolLockEarnsAndClaimsFees() public {
         vm.skip(!forked);
+        _lpLockEarnsAndClaims(POOL);
+    }
+
+    function test_fork_aeroPoolLockEarnsAndClaimsFees() public {
+        vm.skip(!forked);
+        _lpLockEarnsAndClaims(AERO_POOL);
+    }
+
+    function _lpLockEarnsAndClaims(address POOL) internal {
         deal(POOL, alice, 1e15);
         uint256 lp = IERC20(POOL).balanceOf(alice);
 
@@ -61,11 +75,13 @@ contract ForkTest is Test {
         // trade through the pool so fees accrue to LP holders, including the vault
         for (uint256 i; i < 3; i++) {
             deal(WETH, address(this), 50 ether);
-            uint256 out = IPoolSwap(POOL).getAmountOut(50 ether, WETH);
+            vm.roll(block.number + 1);
+            uint256 out = (IPoolSwap(POOL).getAmountOut(50 ether, WETH) * 95) / 100;
             IERC20(WETH).transfer(POOL, 50 ether);
             IPoolSwap(POOL).swap(0, out, address(this), "");
             uint256 usdc = IERC20(USDC).balanceOf(address(this));
-            uint256 back = IPoolSwap(POOL).getAmountOut(usdc, USDC);
+            vm.roll(block.number + 1);
+            uint256 back = (IPoolSwap(POOL).getAmountOut(usdc, USDC) * 95) / 100;
             IERC20(USDC).transfer(POOL, usdc);
             IPoolSwap(POOL).swap(back, 0, address(this), "");
         }

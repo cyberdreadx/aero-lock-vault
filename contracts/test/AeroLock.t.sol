@@ -18,7 +18,8 @@ import {
     HijackToken,
     ReentrantToken,
     RejectEth,
-    MockAggregator
+    MockAggregator,
+    MockAeroPool
 } from "./mocks/Mocks.sol";
 
 contract AeroLockTest is Test {
@@ -26,6 +27,8 @@ contract AeroLockTest is Test {
     MockPoolFactory poolFactory;
     MockERC20 token;
     MockPool pool;
+    MockPoolFactory aeroPoolFactory;
+    MockAeroPool aeroPool;
 
     address admin = makeAddr("admin");
     address treasury = makeAddr("treasury");
@@ -48,6 +51,7 @@ contract AeroLockTest is Test {
     function setUp() public {
         vm.warp(T0);
         poolFactory = new MockPoolFactory();
+        aeroPoolFactory = new MockPoolFactory();
         priceFeed = new MockAggregator(8, 2500e8);
         sequencer = new MockAggregator(0, 0);
         sequencer.set(0, T0 - 2 hours, T0 - 2 hours);
@@ -56,24 +60,33 @@ contract AeroLockTest is Test {
             treasury,
             FEE_USD,
             EXTRA_USD,
-            IAerodromePoolFactory(address(poolFactory)),
+            _factories(address(poolFactory)),
             AggregatorV3Interface(address(priceFeed)),
             AggregatorV3Interface(address(sequencer))
         );
         token = new MockERC20("TKN");
         pool = new MockPool();
         poolFactory.setPool(address(pool), true);
+        aeroPool = new MockAeroPool();
+        aeroPoolFactory.setPool(address(aeroPool), true);
 
         token.mint(alice, 100 * AMOUNT);
         pool.mint(alice, 100 * AMOUNT);
+        aeroPool.mint(alice, 100 * AMOUNT);
         vm.deal(alice, 10 ether);
         vm.startPrank(alice);
         token.approve(address(factory), type(uint256).max);
         pool.approve(address(factory), type(uint256).max);
+        aeroPool.approve(address(factory), type(uint256).max);
         vm.stopPrank();
     }
 
     // ---------------------------------------------------------------- helpers
+
+    function _factories(address legacy) internal view returns (IAerodromePoolFactory[3] memory f) {
+        f[0] = IAerodromePoolFactory(legacy);
+        f[1] = IAerodromePoolFactory(address(aeroPoolFactory));
+    }
 
     function _params(IERC20 t, AeroVestingVault.Kind kind)
         internal
@@ -174,7 +187,7 @@ contract AeroLockTest is Test {
             treasury,
             FEE_USD,
             EXTRA_USD,
-            IAerodromePoolFactory(address(poolFactory)),
+            _factories(address(poolFactory)),
             AggregatorV3Interface(address(feed18)),
             AggregatorV3Interface(address(0))
         );
@@ -645,6 +658,22 @@ contract AeroLockTest is Test {
         pool.accrue(address(v), 1e18, 0);
         v.claimFees();
         assertEq(pool.token0().balanceOf(carol), 1e18);
+    }
+
+    function test_claimFees_aeroPoolPaysReceiverDirectly() public {
+        AeroLockFactory.CreateParams memory p = _params(IERC20(address(aeroPool)), AeroVestingVault.Kind.Fixed);
+        p.feeReceiver = carol;
+        AeroVestingVault v = _create(p);
+        assertTrue(v.isLP(), "Aero factory pools are recognised");
+        aeroPool.accrue(address(v), 4e18, 6e18);
+
+        (uint256 a0, uint256 a1) = v.claimFees();
+        assertEq(a0, 4e18);
+        assertEq(a1, 6e18);
+        assertEq(aeroPool.token0().balanceOf(carol), 4e18);
+        assertEq(aeroPool.token1().balanceOf(carol), 6e18);
+        assertEq(aeroPool.token0().balanceOf(address(v)), 0, "paid out directly, nothing passes through the vault");
+        assertEq(aeroPool.balanceOf(address(v)), AMOUNT, "LP never moves");
     }
 
     function test_claimFees_onlyForLP() public {

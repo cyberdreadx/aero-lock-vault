@@ -144,3 +144,32 @@ contract MockAggregator {
         return (1, answer, startedAt, updatedAt, 1);
     }
 }
+
+/// An Aero-style LP token (Oct 2026+): claimFees(recipient) pays straight to the recipient and
+/// there is no no-argument claimFees().
+contract MockAeroPool is ERC20 {
+    MockERC20 public immutable token0;
+    MockERC20 public immutable token1;
+    mapping(address => uint256[2]) public pending;
+
+    constructor() ERC20("vAMMV2-A/B", "vAMMV2-A/B") {
+        token0 = new MockERC20("A");
+        token1 = new MockERC20("B");
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function accrue(address holder, uint256 a0, uint256 a1) external {
+        pending[holder][0] += a0;
+        pending[holder][1] += a1;
+    }
+
+    function claimFees(address recipient) external returns (uint256 a0, uint256 a1) {
+        (a0, a1) = (pending[msg.sender][0], pending[msg.sender][1]);
+        delete pending[msg.sender];
+        token0.mint(recipient, a0);
+        token1.mint(recipient, a1);
+    }
+}
