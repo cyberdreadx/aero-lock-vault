@@ -174,7 +174,8 @@ export default function DeployLocker() {
   const feePaid = hasPaidFee || isAdmin;
 
   const isValidLpAddress = isAddress(lpTokenAddress, { strict: false });
-  const isValidFeeAddress = isAddress(feeReceiverAddress, { strict: false });
+  // the locker contract doesn't reject a zero fee receiver itself, so the app must
+  const isValidFeeAddress = isAddress(feeReceiverAddress, { strict: false }) && !/^0x0{40}$/i.test(feeReceiverAddress.trim());
   const validLpAddress = isValidLpAddress ? (lpTokenAddress as `0x${string}`) : undefined;
 
   const { data: tokenMetadata } = useTokenMetadata(validLpAddress);
