@@ -31,16 +31,20 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // EIP-1167 minimal proxy runtime pointing at `impl`
 const cloneCode = (impl: string) => `0x363d3d373d3d3d363d73${impl.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3`;
 
-/** Waits briefly for a submitted job's verdict so the caller learns whether it passed. */
-async function settle(result: VerifyResult, proxy = false): Promise<VerifyResult | { status: 'verified' | 'rejected'; detail: string }> {
+/** Waits for a submitted job's verdict and reports Basescan's own words, whatever they are. */
+async function settle(
+  result: VerifyResult,
+  proxy = false,
+): Promise<VerifyResult | { status: 'verified' | 'rejected' | 'pending'; detail: string; guid?: string }> {
   if (result.status !== 'submitted') return result;
-  for (let i = 0; i < 6; i++) {
-    await sleep(5_000);
-    const verdict = await checkVerificationStatus(result.guid, proxy).catch(() => '');
-    if (/pass|verified|success/i.test(verdict)) return { status: 'verified', detail: verdict };
-    if (/fail|unable|error/i.test(verdict) && !/pending/i.test(verdict)) return { status: 'rejected', detail: verdict };
+  let verdict = '';
+  for (let i = 0; i < 12; i++) {
+    await sleep(8_000);
+    verdict = await checkVerificationStatus(result.guid, proxy).catch((e) => `status check failed: ${e}`);
+    if (/pass|already verified/i.test(verdict)) return { status: 'verified', detail: verdict };
+    if (!/pending|queue|in progress/i.test(verdict)) return { status: 'rejected', detail: verdict, guid: result.guid };
   }
-  return result;
+  return { status: 'pending', detail: verdict, guid: result.guid };
 }
 
 serve(async (req) => {
